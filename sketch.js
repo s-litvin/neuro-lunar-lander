@@ -212,25 +212,33 @@ function handleCollisions() {
     v1.x = width - radius;
   }
 
-  // Обработка столкновений по оси Y
-  if ((v1.y + velocity.y) > (height - radius - 1) || (v1.y + velocity.y) <= 1) {
-    if (velocity.y > 0) { // Если направлен вниз
-      velocity.y *= -0.49; // Потеря энергии при ударе
-    } else {
-      velocity.y *= -1;
+  // Обработка столкновений с верхней границей
+  if ((v1.y + velocity.y) <= 0) {
+    v1.y = 0; // Устанавливаем положение на верхней границе
+    if (velocity.y < 0) { // Если движется вверх
+      velocity.y *= -0.5; // Потеря энергии при ударе
+    }
+  }
+
+  // Проверка столкновения с землей
+  if ((v1.y + velocity.y) >= (height - radius)) {
+    v1.y = height - radius; // Устанавливаем положение на уровне земли
+
+    if (velocity.y > 0) { // Если ракета падает
+      velocity.y *= -0.5; // Потеря энергии при ударе
     }
 
-    // Остановка при малой скорости и отсутствии тяги
-    if (sqrt(velocity.y * velocity.y) < 0.08 && throast.y === 0) {
+    // Если скорость очень мала, останавливаем полностью
+    if (Math.abs(velocity.y) < 0.1 && throast.mag() === 0) {
       velocity.y = 0;
     }
 
-    // Трение о поверхность
-    velocity.x -= velocity.x * 0.04;
+    // Применяем трение
+    velocity.x *= 0.96;
   }
 
-  // Устранение дребезга при низкой скорости
-  if (sqrt(velocity.x * velocity.x) < 0.01) {
+  // Устранение дребезга при низкой горизонтальной скорости
+  if (Math.abs(velocity.x) < 0.01) {
     velocity.x = 0;
   }
 }
