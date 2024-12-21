@@ -205,39 +205,39 @@ function handleInput() {
 }
 
 function handleCollisions() {
-  // Обработка столкновений по оси X
+  // Handle collisions on the X axis
   if ((v1.x + velocity.x) > (width - radius)) {
     v1.x = 0;
   } else if ((v1.x + velocity.x) < 0) {
     v1.x = width - radius;
   }
 
-  // Обработка столкновений с верхней границей
+  // Handle collisions with the top boundary
   if ((v1.y + velocity.y) <= 0) {
-    v1.y = 0; // Устанавливаем положение на верхней границе
-    if (velocity.y < 0) { // Если движется вверх
-      velocity.y *= -0.5; // Потеря энергии при ударе
+    v1.y = 0; // Set position at the top boundary
+    if (velocity.y < 0) { // If moving upwards
+      velocity.y *= -0.5; // Lose energy upon collision
     }
   }
 
-  // Проверка столкновения с землей
+  // Handle collisions with the ground
   if ((v1.y + velocity.y) >= (height - radius)) {
-    v1.y = height - radius; // Устанавливаем положение на уровне земли
+    v1.y = height - radius; // Set position at ground level
 
-    if (velocity.y > 0) { // Если ракета падает
-      velocity.y *= -0.5; // Потеря энергии при ударе
+    if (velocity.y > 0) { // If falling
+      velocity.y *= -0.5; // Lose energy upon collision
     }
 
-    // Если скорость очень мала, останавливаем полностью
+    // Stop completely if speed is very low and no thrust is applied
     if (Math.abs(velocity.y) < 0.1 && throast.mag() === 0) {
       velocity.y = 0;
     }
 
-    // Применяем трение
+    // Apply friction on the ground
     velocity.x *= 0.96;
   }
 
-  // Устранение дребезга при низкой горизонтальной скорости
+  // Eliminate jitter at low horizontal speeds
   if (Math.abs(velocity.x) < 0.01) {
     velocity.x = 0;
   }
