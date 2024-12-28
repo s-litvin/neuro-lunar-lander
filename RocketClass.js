@@ -19,6 +19,8 @@ class Rocket {
     touchDown = false;
     isDestroyed = false;
 
+    lifeTime = 1;
+
 
     setup() {
         createCanvas(840, 480);
@@ -39,6 +41,7 @@ class Rocket {
         this.dVel = createVector(0, 0);
         this.dAcc = createVector(0.01, 0);
         this.isDestroyed = false;
+        this.lifeTime = 0;
     }
 
 
@@ -60,7 +63,8 @@ class Rocket {
 
         if (!this.isDestroyed) {
             this.applyTouchDown();
-            this.applyEnvironmentalForces();
+            this.applyEnvironmentalForces()
+            this.lifeTime++;
         }
 
         this.updateDronBoat();
@@ -187,7 +191,8 @@ class Rocket {
             dronBoatPosition: { x: this.dronBoat.x, y: this.dronBoat.y },
             screen: { width: this.width, height: this.height },
             thrust: { x: this.thrust.x, y: this.thrust.y },
-            isDestroyed: this.isDestroyed
+            isDestroyed: this.isDestroyed,
+            lifeTime: this.lifeTime
         };
     }
 
@@ -400,6 +405,7 @@ class Rocket {
         textSize(14);
         noStroke();
 
+        text("life > " + this.lifeTime, 10, 35);
         text("grv > " + nf(this.gravity.x, 0, 3) + " : " + nf(this.gravity.y, 0, 3), 10, 50);
         text("acc > " + nf(this.acceleration.x, 0, 3) + " : " + nf(this.acceleration.y, 0, 3), 10, 65);
         text("vel > " + nf(this.velocity.x, 0, 3) + " : " + nf(this.velocity.y, 0, 3), 10, 80);

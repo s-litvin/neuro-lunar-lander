@@ -3,6 +3,7 @@ class NeuralNetwork {
     targetNeuralNetwork;
     perceptron;
     epoch = 0;
+    networkError = 0;
 
     syncTargetNetwork()
     {
@@ -14,11 +15,12 @@ class NeuralNetwork {
 
     init() {
         this.epoch = 0;
-        this.perceptron = new Perceptron(0.0005, 0.001);
+        this.perceptron = new Perceptron(0.00001, 0.0001);
 
         this.perceptron.createLayers([
-            {size: 12, activation: Cell.LINEAR},
+            {size: 13, activation: Cell.LINEAR},
             {size: 28, activation: Cell.RELU},
+            {size: 9, activation: Cell.RELU},
             {size: 4, activation: Cell.LINEAR},
         ]);
 
@@ -47,6 +49,7 @@ class NeuralNetwork {
             rocketState.thrust.y / 6.5,
 
             rocketState.isDestroyed * 1,
+            rocketState.lifeTime / 300,
             // Math.abs(rocketState.position.x - rocketState.dronBoatPosition.x) / rocketState.screen.width
         ];
 
@@ -77,7 +80,7 @@ class NeuralNetwork {
 
     trainFromBatch(batch, gamma) {
         let stepCounter = 0; // Счётчик шагов
-        let totalError = 0;
+        this.networkError = 0;
 
         batch.forEach(transition => {
             const { state, action, reward, nextState } = transition;
@@ -110,7 +113,7 @@ class NeuralNetwork {
             this.perceptron.setInputVector(state);
             this.perceptron.setOutputVector(targetQValues);
             this.perceptron.backPropagation();
-            totalError += this.perceptron.getNetError();
+            this.networkError += this.perceptron.getNetError();
 
             // Увеличиваем счётчик шагов
             stepCounter++;
@@ -122,9 +125,7 @@ class NeuralNetwork {
         });
 
         this.epoch++;
-        console.log('Epoch: ' + this.epoch + '; Error: ' + totalError);
-
-        errorHistoryGraph.push(totalError / batch.length); // Средняя ошибка
+        errorHistoryGraph.push(this.networkError / batch.length); // Средняя ошибка
         if (errorHistoryGraph.length > graphMaxPoints) {
             errorHistoryGraph.shift();
         }

@@ -7,19 +7,21 @@ let perceptron;
 let stepCount = 0;
 
 let replayBuffer = [];
-let maxReplayBufferSize = 1000;
+let maxReplayBufferSize = 2000;
 
 let epsilon = 1.0; // Начальная случайность
-let epsilonDecay = 0.004 // Коэффициент уменьшения
+let epsilonDecay = 0.02 // Коэффициент уменьшения
 let minEpsilon = 0.1; // Минимальная случайность
 
 let rewardHistory = [];
 let averageReward = 0;
-let rewardWindow = 300;
+let rewardWindow = 60;
 
 let currentExplorationAction = null;
 let explorationDuration = 0;
-let maxExplorationDuration = 100; // Максимальное число шагов для одного действия
+let maxExplorationDuration = 60; // Максимальное число шагов для одного действия
+
+let maxExplorationTime = 600; // Максимальное число шагов для исследования
 
 let rewardHistoryGraph = [];
 let errorHistoryGraph = [];
@@ -59,7 +61,7 @@ function draw()
             // Случайное действие
             let action = Math.floor(random(0, 4));
             currentExplorationAction = {
-                thrust: action === 0 || action === 3,
+                thrust: action === 0,
                 turnLeft: action === 1,
                 turnRight: action === 2,
                 doNothing: action === 3,
@@ -107,7 +109,6 @@ function draw()
 
         // console.log(batch);
         epsilon = epsilon - epsilonDecay;
-        console.log(`Epsilon: ${epsilon}`);
     }
 
     rewardHistory.push(reward);
@@ -117,11 +118,7 @@ function draw()
 
     averageReward = rewardHistory.reduce((a, b) => a + b, 0) / rewardHistory.length;
 
-    if (stepCount % 300 === 0) {
-        console.log(`Average Reward: ${averageReward}`);
-    }
-
-    if (enableReset && (stepCount % 300 === 0 || rocketState.isDestroyed)) {
+    if (enableReset && (stepCount % maxExplorationTime === 0 || rocketState.isDestroyed)) {
 
         rocket.setup(); // Перезапуск ракеты каждые 500 шагов или после уничтожения
         console.log("Rocket restarted...");
@@ -144,45 +141,37 @@ function draw()
 function calculateReward(state) {
     let reward = 0;
 
+    // Штраф за разрушение
     if (state.isDestroyed) {
-        return -1; // Максимальный штраф за разрушение
+        return -1; // Максимальный штраф
     }
 
-    // Высота, на которой ракета считается приземленной
-    const landingThreshold = 440;
+    // Штраф за отклонение ориентации от вертикали
+    const orientationVector = createVector(state.orientation.x, state.orientation.y);
+    const verticalVector = createVector(0, -1);
+    const angle = degrees(orientationVector.angleBetween(verticalVector));
+    const orientationPenalty = map(abs(angle), 0, 180, 0, 100); // Чем больше угол, тем сильнее штраф
+    reward -= orientationPenalty;
 
-    // Проверка приземления
-    if (state.position.y >= landingThreshold) {
-        // Вектор ориентации
-        const orientationVector = createVector(state.orientation.x, state.orientation.y);
+    // Штраф за высокую горизонтальную скорость
+    const horizontalSpeed = abs(state.velocity.x);
+    const speedPenalty = map(horizontalSpeed, 0, 5, 0, 600); // Линейное увеличение штрафа
+    reward -= speedPenalty;
 
-        // Ожидаемый вертикальный вектор (0, -1)
-        const verticalVector = createVector(0, -1);
+    // Бонус за стабильную скорость
+    const verticalSpeed = abs(state.velocity.y);
+    const stableSpeedBonus = map(verticalSpeed, 0, 2, 150, 0); // Чем ближе к 0, тем больше бонус
+    reward += stableSpeedBonus;
 
-        // Угол между ориентацией и вертикальным вектором
-        const angle = degrees(orientationVector.angleBetween(verticalVector));
-        const tolerance = 15;
+    reward += state.lifeTime * 2;
 
-        if (Math.abs(angle) > tolerance) {
-            // Неправильное приземление
-            return -1;
-        } else {
-            // Успешное приземление
-            reward += 1000; // Максимальная награда
-        }
-    }
-
-    reward += 350; // очки за нахождение в воздухе
-
-    // Ограничение награды в диапазон [-1, 1]
+    // Ограничение награды в диапазоне [-1, 1]
     const maxReward = 1000;
     reward = Math.max(Math.min(reward, maxReward), -maxReward);
     reward /= maxReward;
 
     return reward;
 }
-
-
 
 
 function sampleBatch(buffer, batchSize) {
@@ -209,13 +198,13 @@ function drawGraphs() {
 
     // Сетка для графиков
     stroke(200); // Светло-серый цвет сетки
-    for (let i = 0; i <= 5; i++) { // Горизонтальные линии
-        const y = offsetY + (graphHeight / 5) * i;
+    for (let i = 0; i <= 4; i++) { // Горизонтальные линии
+        const y = offsetY + (graphHeight / 4) * i;
         line(offsetX, y, offsetX + graphWidth, y);
         line(offsetX, y + graphHeight + 10, offsetX + graphWidth, y + graphHeight + 10);
     }
-    for (let i = 0; i <= 5; i++) { // Вертикальные линии
-        const x = offsetX + (graphWidth / 5) * i;
+    for (let i = 0; i <= 4; i++) { // Вертикальные линии
+        const x = offsetX + (graphWidth / 4) * i;
         line(x, offsetY, x, offsetY + graphHeight);
         line(x, offsetY + graphHeight + 10, x, offsetY + graphHeight + 10 + graphHeight);
     }
@@ -242,6 +231,9 @@ function drawGraphs() {
     fill(0);
     textSize(12);
     text("Reward avg", offsetX + 5, offsetY + 15);
+    text("1", offsetX - 8, offsetY + 5);
+    text("0", offsetX - 12, offsetY + graphHeight/2);
+    text("-1", offsetX - 12, offsetY + graphHeight);
 
     // График ошибки (линии и точки)
     stroke(255, 0, 0); // Красный цвет линий
@@ -265,6 +257,8 @@ function drawGraphs() {
     fill(0);
     textSize(12);
     text("Network error", offsetX + 5, offsetY + graphHeight + 25);
+
+    text("Epoch:" + neuralNetwork.epoch + "     Epsilon greedy: " + epsilon.toFixed(3) + "   Reward avg:" + averageReward.toFixed(3), offsetX + 5, offsetY - 35);
 }
 
 
