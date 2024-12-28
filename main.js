@@ -1,412 +1,331 @@
-const CANVAS_WIDTH = 1200;
-const CANVAS_HEIGHT = 800;
-const GRAPH_X = 820;
-const GRAPH_Y = 272;
-const GRAPH_WIDTH = 350;
-const GRAPH_HEIGHT = 250;
-const NEURON_SIZE = 28;
-const NEURON_SPACING_X = 120;
-const NEURON_SPACING_Y = 45;
-const DATASET_X = GRAPH_X - 40;
-const DATASET_Y = GRAPH_HEIGHT + 80;
-const LEGEND_SIZE = 10;
-const LINE_HEIGHT = 15;
-const FONT_SIZE = 12;
-const EPOCH_BAR_HEIGHT = 20;
-const BUTTONS = [
-    { x: 575, y: 0, width: 82, height: 20, color: "#FF6161", text: "Train again" },
-    { x: 695, y: 0, width: 82, height: 20, color: "#00AAFF", text: "Screenshot" },
-
-    { x: 820, y: 0, width: 40, height: 20, color: "#555500", text: "LR +" },
-    { x: 870, y: 0, width: 40, height: 20, color: "#FF9800", text: "LR -" },
-
-    { x: 920, y: 0, width: 40, height: 20, color: "#555555", text: "DR +" },
-    { x: 970, y: 0, width: 40, height: 20, color: "#FF5577", text: "DR -" },
-
-    { x: 1020, y: 0, width: 70, height: 20, color: "#007700", text: "Load CSV" }
-];
-
-
-let canvas = document.getElementById("NeuroNet");
-ctx = canvas.getContext("2d");
-
-canvas.width = CANVAS_WIDTH;
-canvas.height = CANVAS_HEIGHT;
-
+let rocket;
+let thrust = 0;
+let turnLeft = 0;
+let turnRight = 0;
+let neuralNetwork;
 let perceptron;
-let learningRate = 0.5;
-let dropoutRate = 0.0;
-let epochs = 1500;
-let epoch = 0;
-let dataIndex = 0;
+let stepCount = 0;
 
-const trainingData = [
-    { inputs: [0.1, 0.2, 0.3, 0.4, 0.5], outputs: [0.14, 0.26, 0.35] },
-    { inputs: [0.5, 0.4, 0.3, 0.2, 0.1], outputs: [0.33, 0.29, 0.07] },
-    { inputs: [0.9, 0.8, 0.7, 0.6, 0.5], outputs: [0.58, 0.64, 0.35] },
-    { inputs: [0.3, 0.1, 0.4, 0.7, 0.2], outputs: [0.11, 0.33, 0.14] },
-    { inputs: [0.7, 0.6, 0.5, 0.4, 0.3], outputs: [0.41, 0.46, 0.21] },
-];
-let errors = new Array(trainingData.length).fill(0);
+let replayBuffer = [];
+let maxReplayBufferSize = 1000;
 
-function restart() {
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+let epsilon = 1.0; // Начальная случайность
+let epsilonDecay = 0.004 // Коэффициент уменьшения
+let minEpsilon = 0.1; // Минимальная случайность
 
-    epoch = 0;
-    dataIndex = 0;
-    perceptron = new Perceptron(learningRate, 0.00001);
+let rewardHistory = [];
+let averageReward = 0;
+let rewardWindow = 300;
 
-    perceptron.createLayers([
-        { size: trainingData[0].inputs.length, activation: Cell.LINEAR },
-        { size: 4, activation: Cell.SIGMOID },
-        { size: trainingData[0].outputs.length, activation: Cell.LINEAR },
-    ]);
+let currentExplorationAction = null;
+let explorationDuration = 0;
+let maxExplorationDuration = 100; // Максимальное число шагов для одного действия
 
-    perceptron.setInputVector(trainingData[0].inputs);
-    perceptron.setOutputVector(trainingData[0].outputs);
-    perceptron.setDropoutRate(dropoutRate);
+let rewardHistoryGraph = [];
+let errorHistoryGraph = [];
+let graphMaxPoints = 300; // Максимальное количество точек на графике
+
+let lrSlider, explorationDurationSlider, bufferSlider, batchSlider, greedCheckbox, trainingCheckbox, resetCheckbox, learningRate = 0.001, pauseCheckbox;
+let enableTraining = true;
+let enableGreed = true;
+let enableReset = true;
+let pause = false;
+
+function setup()
+{
+    rocket = new Rocket();
+    rocket.setup();
+
+    neuralNetwork = new NeuralNetwork();
+    neuralNetwork.init();
+
+    initUI()
 }
 
-function setup() {
-    restart();
-}
+function draw()
+{
+    let rocketState = rocket.getState();
 
-function draw() {
-    clearCanvas();
+    let commands;
 
-    if (epoch < epochs) {
-        trainCurrentData();
+    if (pause) {
+        noLoop();
     }
 
-    const color = getColorByIndex(dataIndex, trainingData.length);
+    if (enableGreed && Math.random() < epsilon) {
+        // Случайное действие
 
-    drawNet(perceptron, color);
-    drawTrainingDataset(trainingData, DATASET_X, DATASET_Y);
-}
-
-function isInside(pos, rect) {
-    return (
-        pos.x >= rect.x &&
-        pos.x <= rect.x + rect.width &&
-        pos.y >= rect.y &&
-        pos.y <= rect.y + rect.height
-    );
-}
-
-canvas.addEventListener("click", function (event) {
-    const mousePos = getMousePosition(canvas, event);
-
-    BUTTONS.forEach((button) => {
-        if (isInside(mousePos, button)) {
-            switch (button.text) {
-                case "Train again":
-                    restart(); // restart
-                    break;
-                case "Screenshot":
-                    const image = canvas
-                        .toDataURL("image/png")
-                        .replace("image/png", "image/octet-stream");
-                    window.location.href = image; // Save screenshot
-                    break;
-                case "LR +":
-                    adjustLearningRate(0.05); // Learning rate increase
-                    break;
-                case "LR -":
-                    adjustLearningRate(-0.05); // Learning rate decrease
-                    break;
-                case "DR +":
-                    adjustDropoutRate(0.01); // Dropout rate increase
-                    break;
-                case "DR -":
-                    adjustDropoutRate(-0.01); // Dropout rate decrease
-                    break;
-                case "Load CSV":
-                    loadCSVData((data) => {
-                        trainingData.length = 0;
-
-                        const firstRow = data[0];
-                        const inputColumns = [];
-                        const outputColumns = [];
-
-                        Object.keys(firstRow).forEach((key) => {
-                            if (key.toLowerCase().startsWith("input")) {
-                                inputColumns.push(key);
-                            } else if (key.toLowerCase().startsWith("output")) {
-                                outputColumns.push(key);
-                            }
-                        });
-
-                        data.forEach((row) => {
-                            const inputs = inputColumns.map((col) => parseFloat(row[col] || 0));
-                            const outputs = outputColumns.map((col) => parseFloat(row[col] || 0));
-                            trainingData.push({ inputs, outputs });
-                        });
-
-                        epochs = trainingData.length * 5;
-
-                        restart();
-
-                        console.log("New training data loaded:", trainingData);
-                        console.log("Input columns:", inputColumns);
-                        console.log("Output columns:", outputColumns);
-                    });
-                    break;
-            }
-        }
-    });
-});
-
-
-function getMousePosition(canvas, event) {
-    let rectangle = canvas.getBoundingClientRect();
-    return {
-        x: event.clientX - rectangle.left,
-        y: event.clientY - rectangle.top
-    };
-}
-
-function clearCanvas() {
-    ctx.fillStyle = "#fff";
-    // clear NN area
-    ctx.fillRect(GRAPH_X - 5, GRAPH_Y + 8, CANVAS_WIDTH, CANVAS_HEIGHT);
-    // clear Training Dataset info area
-    ctx.fillRect(0, 0, GRAPH_X - 5, CANVAS_HEIGHT);
-}
-
-function trainCurrentData() {
-    const data = trainingData[dataIndex];
-
-    perceptron.setInputVector(data.inputs);
-    perceptron.setOutputVector(data.outputs);
-
-    perceptron.forwardPass();
-    perceptron.backPropagation();
-
-    errors[dataIndex] = perceptron.getNetError();
-    epoch++;
-    dataIndex = (dataIndex + 1) % trainingData.length;
-}
-
-function getColorByIndex(index, totalIndices) {
-    const hue = (index / totalIndices) * 360;
-    return `hsl(${hue}, 100%, 50%)`;
-}
-
-function drawTrainingDataset(dataset, x, y) {
-    ctx.font = `${FONT_SIZE}px Arial`;
-    ctx.fillStyle = "#000000";
-    ctx.fillText("Training dataset:", x, y);
-
-    dataset.forEach((data, index) => {
-        const inputs = data.inputs.map((v) => v.toFixed(2)).join(", ");
-        const outputs = data.outputs.map((v) => v.toFixed(2)).join(", ");
-        const error = errors[index] || 0;
-        const text = `inputs: [${inputs}] outputs: [${outputs}] error: ${error.toFixed(3)}`;
-
-        ctx.fillStyle = "#000000";
-        ctx.fillText(text, x + LEGEND_SIZE + 5, y + (index + 1) * LINE_HEIGHT);
-
-        const color = getColorByIndex(index, dataset.length);
-        ctx.fillStyle = color;
-        ctx.fillRect(x, y + (index + 1) * LINE_HEIGHT - 10, LEGEND_SIZE, LEGEND_SIZE);
-    });
-}
-
-function drawNet(perceptron, datasetColor) {
-    drawBackground();
-    drawGraph(perceptron, datasetColor);
-    drawNeuralNetwork(perceptron);
-}
-
-function drawButtons() {
-    BUTTONS.forEach((button) => {
-        ctx.fillStyle = button.color;
-        ctx.fillRect(button.x, button.y, button.width, button.height);
-
-        ctx.fillStyle = "white";
-        ctx.font = "13px Arial";
-        ctx.fillText(button.text, button.x + 5, button.y + 15);
-    });
-}
-
-function drawBackground() {
-
-    ctx.fillStyle = "#4caf50";
-    ctx.fillRect(0, 0, CANVAS_WIDTH, EPOCH_BAR_HEIGHT);
-
-    ctx.fillStyle = "white";
-    ctx.fillText(`Epoch: ${perceptron.getEpoch()}`, 15, 15);
-    ctx.fillText(`Learning rate: ${perceptron.getLearningRate().toFixed(2)}`, 90, 15);
-    ctx.fillText(`Dropout rate: ${(perceptron.dropoutRate || 0).toFixed(2)}`, 210, 15);
-    ctx.fillText(`Net error: ${perceptron.getNetError().toFixed(4)}`, 320, 15);
-    ctx.fillText(`Err threshold: ${perceptron.getErrorTrashold()}`, 430, 15);
-
-    drawButtons();
-}
-
-function drawGraph(perceptron, color) {
-    ctx.strokeStyle = "#c5e5b2";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(GRAPH_X, GRAPH_Y - GRAPH_HEIGHT);
-    ctx.lineTo(GRAPH_X, GRAPH_Y);
-    ctx.moveTo(GRAPH_X, GRAPH_Y);
-    ctx.lineTo(GRAPH_X + GRAPH_WIDTH, GRAPH_Y);
-    ctx.stroke();
-
-    const currentEpoch = perceptron.getEpoch();
-    if (currentEpoch > 0) {
-        ctx.fillStyle = color;
-        ctx.fillRect(
-            GRAPH_X + (currentEpoch / epochs) * GRAPH_WIDTH,
-            GRAPH_Y - Math.abs(perceptron.getNetError()) * 650,
-            1,
-            1
-        );
-    }
-
-    ctx.fillStyle = "#ddd";
-    ctx.fillText("0", GRAPH_X - 5, GRAPH_Y + 20);
-    ctx.fillText("epochs", GRAPH_X + GRAPH_WIDTH / 2, GRAPH_Y + 30);
-    ctx.fillText(epochs, GRAPH_X + GRAPH_WIDTH, GRAPH_Y + 20);
-    ctx.fillText("Error", GRAPH_X - 40, GRAPH_Y - 220);
-}
-
-function drawNeuralNetwork(perceptron) {
-    const neuronPositions = {};
-
-    perceptron.layers.forEach((layer, layerIndex) => {
-        const neurons = perceptron.getNeuronsByLayer(layer);
-        const x = 20 + NEURON_SPACING_X * layerIndex;
-
-        // get layer activation type and draw it
-        const activation = neurons[0]?.cell.activation || Cell.LINEAR;
-        drawActivationFunction(layerIndex, activation, x, 70);
-
-        neurons.forEach((neuron, neuronIndex) => {
-            const y = 70 + NEURON_SPACING_Y * neuronIndex;
-
-            neuronPositions[neuron.id] = [x, y];
-            drawNeuron(neuron, x, y, neuronPositions);
-        });
-    });
-}
-
-function drawNeuron(neuron, x, y, neuronPositions) {
-    drawNeuronLinks(neuron, x, y, neuronPositions);
-
-    const radius = NEURON_SIZE / 2;
-
-    ctx.beginPath();
-    ctx.arc(x + radius, y + radius, radius, 0, 2 * Math.PI); // center of the circle and radius
-    ctx.fillStyle = getNeuronColor(neuron);
-    ctx.fill();
-
-    // neuron label
-    ctx.fillStyle = "#6c6c6c";
-    ctx.fillText(neuron.id, x + radius / 2 - 3, y + radius + 5);
-
-    drawNeuronData(neuron, x, y);
-}
-
-
-function drawNeuronData(neuron, x, y) {
-    const textOffsetX = 40;
-
-    ctx.fillStyle = "#333";
-
-    if (neuron.cell.layer === 0 && !neuron.cell.isBias) {
-        ctx.fillText(`in: ${neuron.cell.input.toFixed(2)}`, x - textOffsetX + 20, y + NEURON_SIZE / 2 - 20);
-    }
-
-    if (neuron.cell.getTargetOutput !== null && neuron.cell.layer === perceptron.layers.length - 1) {
-        ctx.fillText(`out: ${neuron.cell.getOutput().toFixed(3)}`, x + textOffsetX, y + NEURON_SIZE / 3);
-        ctx.fillStyle = "grey";
-        ctx.fillText(`target: ${neuron.cell.getTargetOutput().toFixed(3)}`, x + textOffsetX, y + (NEURON_SIZE * 2) / 3);
-    }
-}
-
-function drawNeuronLinks(neuron, x, y, neuronPositions) {
-    neuron.links.forEach((link) => {
-        if (link.type === "left") {
-            ctx.beginPath();
-            ctx.moveTo(x, y + NEURON_SIZE / 2);
-
-            if (neuronPositions[link.id]) {
-                ctx.lineTo(
-                    neuronPositions[link.id][0] + NEURON_SIZE,
-                    neuronPositions[link.id][1] + NEURON_SIZE / 2
-                );
-            }
-
-            ctx.lineWidth = Math.min(link.weight * 2, 5);
-            ctx.strokeStyle = link.weight < 0 ? "#496cab" : "#f89f9f";
-            ctx.stroke();
-        }
-    });
-}
-
-function getNeuronColor(neuron) {
-    if (neuron.cell.isRecurrent) return "#F0C7F7";
-    if (neuron.cell.isBias) return "#c7ecf7";
-    if (neuron.cell.layer === 0) return "#f4d6bb";
-    if (neuron.cell.layer === perceptron.layers.length - 1) return "#b5e8b8";
-    return "#e3e2e5";
-}
-
-function drawActivationFunction(layerIndex, activation, x, y) {
-    ctx.fillStyle = "#ccc";
-    ctx.font = "12px Arial";
-    ctx.fillText(activation, x, y - 20);
-}
-
-
-function adjustLearningRate(delta) {
-    learningRate = perceptron.getLearningRate() + delta;
-    learningRate = Math.max(0.00001, Math.min(learningRate, 1)); // limit LR in range [0.00001, 1]
-    perceptron.setLearningRate(learningRate);
-}
-
-function adjustDropoutRate(delta) {
-    const currentRate = perceptron.dropoutRate || 0;
-    let newRate = currentRate + delta;
-    dropoutRate = Math.max(0.0, Math.min(newRate, 1.0));
-    perceptron.setDropoutRate(dropoutRate);
-}
-
-function loadCSVData(callback) {
-    const inputElement = document.createElement("input");
-    inputElement.type = "file";
-    inputElement.accept = ".csv";
-
-    inputElement.addEventListener("change", (event) => {
-        const file = event.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const csvContent = e.target.result;
-                const parsedData = parseCSV(csvContent);
-                callback(parsedData);
+        if (explorationDuration === 0) {
+            // Случайное действие
+            let action = Math.floor(random(0, 4));
+            currentExplorationAction = {
+                thrust: action === 0 || action === 3,
+                turnLeft: action === 1,
+                turnRight: action === 2,
+                doNothing: action === 3,
+                index: action
             };
-            reader.readAsText(file);
+            explorationDuration = Math.floor(Math.random() * maxExplorationDuration) + 1;
         }
+        explorationDuration--;
+        commands = currentExplorationAction;
+    } else {
+        // Действие, предсказанное нейросетью
+        perceptron = neuralNetwork.getPerceptron();
+        neuralNetwork.setInput(rocketState);
+        perceptron.forwardPass();
+        commands = neuralNetwork.getOutputCommands();
+    }
+
+    thrust = commands.thrust;
+    turnLeft = commands.turnLeft;
+    turnRight = commands.turnRight;
+
+    rocket.drawAll(thrust, turnLeft, turnRight);
+    this.drawGraphs();
+
+    const nextState = rocket.getState();
+
+    const reward = calculateReward(rocketState);
+
+    replayBuffer.push({
+        state: rocketState,
+        action: commands.index, // Индекс действия (0, 1 или 2, 3 - do nothing)
+        reward: reward,
+        nextState: nextState
     });
 
-    inputElement.click();
+    if (replayBuffer.length > maxReplayBufferSize) {
+        replayBuffer.shift();
+    }
+
+    stepCount++;
+    if (enableTraining && stepCount % 300 === 0 && replayBuffer.length >= rewardWindow && epsilon > minEpsilon) {
+        const batch = sampleBatch(replayBuffer, rewardWindow);
+        // console.log(`Step ${stepCount}: Training batch`, batch);
+        neuralNetwork.trainFromBatch(batch, 0.99); // gamma = 0.99
+
+        // console.log(batch);
+        epsilon = epsilon - epsilonDecay;
+        console.log(`Epsilon: ${epsilon}`);
+    }
+
+    rewardHistory.push(reward);
+    if (rewardHistory.length > rewardWindow) {
+        rewardHistory.shift();
+    }
+
+    averageReward = rewardHistory.reduce((a, b) => a + b, 0) / rewardHistory.length;
+
+    if (stepCount % 300 === 0) {
+        console.log(`Average Reward: ${averageReward}`);
+    }
+
+    if (enableReset && (stepCount % 300 === 0 || rocketState.isDestroyed)) {
+
+        rocket.setup(); // Перезапуск ракеты каждые 500 шагов или после уничтожения
+        console.log("Rocket restarted...");
+    }
+
+    if (stepCount % 300 === 0) {
+        rewardHistoryGraph.push(averageReward);
+        if (rewardHistoryGraph.length > graphMaxPoints) {
+            rewardHistoryGraph.shift();
+        }
+    }
+
+    rewardWindow = batchSlider.value();
+    enableGreed = greedCheckbox.checked();
+    enableTraining = trainingCheckbox.checked();
+    enableReset = resetCheckbox.checked();
+    pause = pauseCheckbox.checked();
+}
+
+function calculateReward(state) {
+    let reward = 0;
+
+    if (state.isDestroyed) {
+        return -1; // Максимальный штраф за разрушение
+    }
+
+    // Высота, на которой ракета считается приземленной
+    const landingThreshold = 440;
+
+    // Проверка приземления
+    if (state.position.y >= landingThreshold) {
+        // Вектор ориентации
+        const orientationVector = createVector(state.orientation.x, state.orientation.y);
+
+        // Ожидаемый вертикальный вектор (0, -1)
+        const verticalVector = createVector(0, -1);
+
+        // Угол между ориентацией и вертикальным вектором
+        const angle = degrees(orientationVector.angleBetween(verticalVector));
+        const tolerance = 15;
+
+        if (Math.abs(angle) > tolerance) {
+            // Неправильное приземление
+            return -1;
+        } else {
+            // Успешное приземление
+            reward += 1000; // Максимальная награда
+        }
+    }
+
+    reward += 350; // очки за нахождение в воздухе
+
+    // Ограничение награды в диапазон [-1, 1]
+    const maxReward = 1000;
+    reward = Math.max(Math.min(reward, maxReward), -maxReward);
+    reward /= maxReward;
+
+    return reward;
 }
 
 
-function parseCSV(csvString, delimiter = ",") {
-    const rows = csvString.trim().split("\n");
-    const headers = rows[0].split(delimiter);
 
-    return rows.slice(1).map((row) => {
-        const values = row.split(delimiter);
-        return headers.reduce((acc, header, index) => {
-            acc[header.trim()] = parseFloat(values[index].trim());
-            return acc;
-        }, {});
-    });
+
+function sampleBatch(buffer, batchSize) {
+    const batch = [];
+    for (let i = 0; i < batchSize; i++) {
+        const randomIndex = Math.floor(Math.random() * buffer.length);
+        batch.push(buffer[randomIndex]);
+    }
+
+    return batch;
 }
 
+function drawGraphs() {
+    const graphWidth = 300;  // Ширина графика
+    const graphHeight = 150; // Высота графика
+    const offsetX = 530;      // Отступ слева
+    const offsetY = 50;      // Отступ сверху для начала графиков
+
+    // Полупрозрачный фон графиков
+    fill(255, 255, 255, 50); // Белый с прозрачностью
+    stroke(0);
+    rect(offsetX, offsetY, graphWidth, graphHeight); // Фон графика средней награды
+    rect(offsetX, offsetY + graphHeight + 10, graphWidth, graphHeight); // Фон графика ошибки
+
+    // Сетка для графиков
+    stroke(200); // Светло-серый цвет сетки
+    for (let i = 0; i <= 5; i++) { // Горизонтальные линии
+        const y = offsetY + (graphHeight / 5) * i;
+        line(offsetX, y, offsetX + graphWidth, y);
+        line(offsetX, y + graphHeight + 10, offsetX + graphWidth, y + graphHeight + 10);
+    }
+    for (let i = 0; i <= 5; i++) { // Вертикальные линии
+        const x = offsetX + (graphWidth / 5) * i;
+        line(x, offsetY, x, offsetY + graphHeight);
+        line(x, offsetY + graphHeight + 10, x, offsetY + graphHeight + 10 + graphHeight);
+    }
+
+    // График средней награды (линии и точки)
+    stroke(0, 255, 0); // Зеленый цвет линий
+    noFill();
+    beginShape();
+    for (let i = 0; i < rewardHistoryGraph.length; i++) {
+        const x = map(i, 0, rewardHistoryGraph.length, offsetX, offsetX + graphWidth);
+        const y = map(rewardHistoryGraph[i], -1, 1, offsetY + graphHeight, offsetY);
+        vertex(x, y); // Прямые линии между точками
+    }
+    endShape();
+
+    // Точки для средней награды
+    fill(0, 255, 0); // Зеленый цвет
+    noStroke();
+    for (let i = 0; i < rewardHistoryGraph.length; i++) {
+        const x = map(i, 0, rewardHistoryGraph.length, offsetX, offsetX + graphWidth);
+        const y = map(rewardHistoryGraph[i], -1, 1, offsetY + graphHeight, offsetY);
+        circle(x, y, 3);
+    }
+    fill(0);
+    textSize(12);
+    text("Reward avg", offsetX + 5, offsetY + 15);
+
+    // График ошибки (линии и точки)
+    stroke(255, 0, 0); // Красный цвет линий
+    noFill();
+    beginShape();
+    for (let i = 0; i < errorHistoryGraph.length; i++) {
+        const x = map(i, 0, errorHistoryGraph.length, offsetX, offsetX + graphWidth);
+        const y = map(errorHistoryGraph[i], 0, Math.max(...errorHistoryGraph, 1), offsetY + graphHeight + 10 + graphHeight, offsetY + graphHeight + 10);
+        vertex(x, y); // Прямые линии между точками
+    }
+    endShape();
+
+    // Точки для ошибки сети
+    fill(255, 0, 0); // Красный цвет
+    noStroke();
+    for (let i = 0; i < errorHistoryGraph.length; i++) {
+        const x = map(i, 0, errorHistoryGraph.length, offsetX, offsetX + graphWidth);
+        const y = map(errorHistoryGraph[i], 0, Math.max(...errorHistoryGraph, 1), offsetY + graphHeight + 10 + graphHeight, offsetY + graphHeight + 10);
+        circle(x, y, 3);
+    }
+    fill(0);
+    textSize(12);
+    text("Network error", offsetX + 5, offsetY + graphHeight + 25);
+}
+
+
+function togglePause() {
+    pause = pauseCheckbox.checked(); // Получаем состояние чекбокса
+    if (pause) {
+        noLoop(); // Останавливаем цикл
+    } else {
+        loop(); // Возобновляем цикл
+    }
+}
+
+function initUI()
+{
+    const posX = 10;
+    const posY = 240;
+    const lineHeight = 20;
+
+    // Learning Rate Slider
+    const lrLabel = createP(`Learning Rate: ${learningRate.toFixed(4)}`).position(posX, posY + 0 * lineHeight - 8);
+    lrSlider = createSlider(0.0001, 0.01, learningRate, 0.0001);
+    lrSlider.style('width', '200px').position(posX, posY + 1 * lineHeight);
+    lrSlider.input(() => {
+        learningRate = lrSlider.value();
+        lrLabel.html(`Learning Rate: ${learningRate.toFixed(4)}`);
+    });
+
+    // Replay Buffer Size Slider
+    const bufferLabel = createP(`Replay Buffer Size: ${maxReplayBufferSize}`).position(posX, posY + 2 * lineHeight - 8);
+    bufferSlider = createSlider(200, 2000, maxReplayBufferSize, 50);
+    bufferSlider.style('width', '200px').position(posX, posY + 3 * lineHeight);
+    bufferSlider.input(() => {
+        maxReplayBufferSize = bufferSlider.value();
+        bufferLabel.html(`Replay Buffer Size: ${maxReplayBufferSize}`);
+    });
+
+    // Batch Size Slider
+    const batchLabel = createP(`Batch Size: ${rewardWindow}`).position(posX, posY + 4 * lineHeight - 8);
+    batchSlider = createSlider(30, 500, rewardWindow, 10);
+    batchSlider.style('width', '200px').position(posX, posY + 5 * lineHeight);
+    batchSlider.input(() => {
+        rewardWindow = batchSlider.value();
+        batchLabel.html(`Batch Size: ${rewardWindow}`);
+    });
+
+    // Checkboxes
+    greedCheckbox = createCheckbox("Enable Greed", enableGreed).position(posX, posY + 6 * lineHeight);
+    greedCheckbox.changed(() => {
+        enableGreed = greedCheckbox.checked();
+    });
+
+    trainingCheckbox = createCheckbox("Enable Training", enableTraining).position(posX, posY + 7 * lineHeight);
+    trainingCheckbox.changed(() => {
+        enableTraining = trainingCheckbox.checked();
+    });
+
+    resetCheckbox = createCheckbox("Enable Reset", enableReset).position(posX, posY + 8 * lineHeight);
+    resetCheckbox.changed(() => {
+        enableReset = resetCheckbox.checked();
+    });
+
+    pauseCheckbox = createCheckbox("Pause", pause).position(posX, posY + 9 * lineHeight);
+    pauseCheckbox.changed(togglePause);
+}
