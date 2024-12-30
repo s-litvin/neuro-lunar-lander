@@ -10,7 +10,7 @@ let replayBuffer = [];
 let maxReplayBufferSize = 2000;
 
 let epsilon = 1.0; // Начальная случайность
-let epsilonDecay = 0.02 // Коэффициент уменьшения
+let epsilonDecay = 0.002 // Коэффициент уменьшения
 let minEpsilon = 0.1; // Минимальная случайность
 
 let rewardHistory = [];
@@ -103,13 +103,15 @@ function draw()
     }
 
     stepCount++;
-    if (enableTraining && stepCount % 900 === 0 && replayBuffer.length >= rewardWindow) {
+    if (enableTraining && stepCount % 300 === 0 && replayBuffer.length >= rewardWindow) {
         const batch = sampleBatch(replayBuffer, rewardWindow);
         // console.log(`Step ${stepCount}: Training batch`, batch);
         neuralNetwork.trainFromBatch(batch, 0.99); // gamma = 0.99
 
         // console.log(batch);
-        epsilon = epsilon - epsilonDecay;
+        if (epsilon > minEpsilon) {
+            epsilon = epsilon - epsilonDecay;
+        }
     }
 
     rewardHistory.push(reward);
@@ -124,6 +126,9 @@ function draw()
 
         if (currentExplorationTime < 1 || rocketState.isDestroyed) {
             rocket.initializeGameState();
+            // if (rocketState.isDestroyed) {
+            //     console.log(replayBuffer);exit();
+            // }
             console.log("Rocket restarted...");
             explorationDuration = 0;
             currentExplorationTime = maxExplorationTime;
