@@ -15,16 +15,16 @@ class NeuralNetwork {
 
     init() {
         this.epoch = 0;
-        this.perceptron = new Perceptron(0.005, 0.0001);
+        this.perceptron = new Perceptron(0.0001, 0.0001);
 
         this.perceptron.createLayers([
             {size: 9, activation: Cell.LINEAR},
-            {size: 30, activation: Cell.RELU},
-            {size: 13, activation: Cell.RELU},
+            {size: 17, activation: Cell.RELU},
+            {size: 11, activation: Cell.RELU},
             {size: 4, activation: Cell.LINEAR},
         ]);
 
-        this.perceptron.setDropoutRate(0.5);
+        this.perceptron.setDropoutRate(0.01);
 
         this.syncTargetNetwork();
     }
@@ -88,14 +88,12 @@ class NeuralNetwork {
             // Текущие Q-значения
             this.setInput(state);
             this.perceptron.forwardPass();
-            this.targetNeuralNetwork.forwardPass();
             const qValues = this.perceptron.getOutputVector();
 
 
             // Q-значения следующего состояния
             this.setInput(nextState);
-            this.perceptron.forwardPass();
-            // const nextQValues = this.perceptron.getOutputVector();
+            this.targetNeuralNetwork.forwardPass();
             const qValuesTarget = this.targetNeuralNetwork.getOutputVector();
             const maxNextQ = Math.max(...qValuesTarget);
 
@@ -103,14 +101,16 @@ class NeuralNetwork {
             const targetQValues = [...qValues];
             const maxQValue = 10; // Максимальное значение Q
             const minQValue = -10; // Минимальное значение Q
-            targetQValues[action] = Math.min(Math.max(reward + gamma * maxNextQ, minQValue), maxQValue);  // Обновляем только выбранное действие
+            targetQValues[action] = nextState.isDestroyed
+                ? reward
+                : Math.min(Math.max(reward + gamma * maxNextQ, minQValue), maxQValue);
 
             // Логирование значений
             // console.log("Q-values before update:", qValues);
             // console.log("Target Q-values:", targetQValues, 'action:' + action);
 
             // Обучение
-            this.perceptron.setInputVector(state);
+            this.setInput(state);
             this.perceptron.setOutputVector(targetQValues);
             this.perceptron.backPropagation();
             this.networkError += this.perceptron.getNetError();

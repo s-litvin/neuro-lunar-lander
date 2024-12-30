@@ -10,12 +10,12 @@ let replayBuffer = [];
 let maxReplayBufferSize = 2000;
 
 let epsilon = 1.0; // Начальная случайность
-let epsilonDecay = 0.005 // Коэффициент уменьшения
+let epsilonDecay = 0.01 // Коэффициент уменьшения
 let minEpsilon = 0.1; // Минимальная случайность
 
 let rewardHistory = [];
 let averageReward = 0;
-let rewardWindow = 120;
+let rewardWindow = 130;
 
 let currentExplorationAction = null;
 let explorationDuration = 0;
@@ -124,7 +124,7 @@ function draw()
     }
 
     stepCount++;
-    if (enableTraining && stepCount % 300 === 0 && replayBuffer.length >= rewardWindow) {
+    if (enableTraining && stepCount % 200 === 0 && replayBuffer.length >= rewardWindow) {
         const batch = sampleBatch(replayBuffer, rewardWindow);
         // console.log(`Step ${stepCount}: Training batch`, batch);
         neuralNetwork.trainFromBatch(batch, 0.99); // gamma = 0.99
