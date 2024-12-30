@@ -3,9 +3,9 @@ class Rocket {
 
     width = 840;
     height = 480;
-    radius = 40;
-    dronBoatHeight = 20;
-    dronBoatVelocity = 0.01;
+    radius = 60;
+    // dronBoatHeight = 20;
+    // dronBoatVelocity = 0.01;
 
     v1;
     mass = 100;
@@ -17,32 +17,33 @@ class Rocket {
     orientation;
     tmpVector;
     touchDown = false;
+    touchDownZone;
     isDestroyed = false;
 
     lifeTime = 1;
 
 
     setup() {
-        createCanvas(840, 480);
+        createCanvas(this.width, this.height);
         this.initializeGameState();
         this.initializeUI();
     }
 
     initializeGameState() {
-        this.v1 = createVector(Math.floor(random(0, this.width)), this.height - this.radius * 3);
-        this.thrust = createVector(random(-6.5, 6.5), random(-6.5, 6.5));
-        this.gravity = createVector(0, 0.04);
-        this.acceleration = createVector(0, 0);
-        this.velocity = createVector(0, 0);
-        this.orientation = createVector(0.1, -0.99);
-        // this.orientation = createVector(random(-1, 1), random(-1, 1));
+        this.v1 = createVector(this.width / 4 - this.radius / 2, this.height); // Начальная позиция на стартовой площадке
+        this.thrust = createVector(0, 0); // Без начального импульса
+        this.gravity = createVector(0, 0.04); // Гравитация
+        this.acceleration = createVector(0, 0); // Обнуление ускорения
+        this.velocity = createVector(0, 0); // Обнуление скорости
+        this.orientation = createVector(0, -1); // Ракета смотрит вверх
         this.tmpVector = createVector(0, 0);
-        this.dronBoat = createVector(this.width / 2, this.height - this.dronBoatHeight);
-        this.dVel = createVector(0, 0);
-        this.dAcc = createVector(0.01, 0);
+        // this.dronBoat = createVector(this.width / 2, this.height - this.dronBoatHeight); // Зона посадки
+        // this.dVel = createVector(0, 0);
+        // this.dAcc = createVector(0.01, 0);
         this.isDestroyed = false;
         this.lifeTime = 0;
     }
+
 
 
     initializeUI() {
@@ -56,6 +57,9 @@ class Rocket {
         // frameRate(this.slider.value());
         background(120);
 
+        this.drawStartPlatform();
+        this.drawLandingPlatform();
+
         this.resetAcceleration();
 
         this.handleInput(thrust, turnLeft, turnRight);
@@ -67,15 +71,15 @@ class Rocket {
             this.lifeTime++;
         }
 
-        this.updateDronBoat();
+        // this.updateDronBoat();
 
         this.updateRocketVector();
 
         ///////////// VISUALISATIONS //////////////
 
-        this.drawRocket();
+        this.drawRocket(thrust, turnLeft, turnRight);
         this.drawOrientationVisualization();
-        this.drawDronBoat();
+        // this.drawDronBoat();
         this.drawTelemetry();
     }
 
@@ -89,7 +93,7 @@ class Rocket {
         this.acceleration.mult(0);
     }
 
-    handleInput(thrust=nul0, turnLeft=0, turnRight=0, doNothing=0) {
+    handleInput(thrust=null, turnLeft=0, turnRight=0, doNothing=0) {
 
         if (this.isDestroyed) {
             return;
@@ -188,7 +192,8 @@ class Rocket {
             orientation: { x: this.orientation.x, y: this.orientation.y },
             acceleration: { x: this.acceleration.x, y: this.acceleration.y },
             touchDown: this.touchDown,
-            dronBoatPosition: { x: this.dronBoat.x, y: this.dronBoat.y },
+            touchDownZone: this.touchDownZone,
+            // dronBoatPosition: { x: this.dronBoat.x, y: this.dronBoat.y },
             screen: { width: this.width, height: this.height },
             thrust: { x: this.thrust.x, y: this.thrust.y },
             isDestroyed: this.isDestroyed,
@@ -282,6 +287,54 @@ class Rocket {
         text("Velocity Vector", legendX, legendY + 20);
     }
 
+    drawStartPlatform() {
+        const platformWidth = 100;
+        const platformHeight = 10;
+        const platformX = this.width / 4 - platformWidth / 2; // Стартовая площадка левее центра
+        const platformY = this.height - platformHeight;
+
+        fill(150, 150, 150); // Серый цвет
+        noStroke();
+        rect(platformX, platformY, platformWidth, platformHeight); // Рисуем стартовую площадку
+    }
+
+    drawLandingPlatform() {
+        const platformWidth = this.radius * 3; // Посадочная площадка в 3 раза шире ракеты
+        const platformHeight = 10;
+        const platformX = (this.width * 3) / 4 - platformWidth / 2; // Посадочная площадка правее центра
+        const platformY = this.height - platformHeight;
+
+        // Платформа
+        fill(100, 100, 200); // Синий цвет
+        noStroke();
+        rect(platformX, platformY, platformWidth, platformHeight);
+
+        // Флажки
+        const flagHeight = 30;
+        const flagBaseWidth = 5;
+        const flagXPositions = [
+            platformX,                       // Левый край платформы
+            platformX + platformWidth - 5    // Правый край платформы
+        ];
+
+        fill(255, 0, 0); // Красный цвет флажков
+        for (let x of flagXPositions) {
+            // Рисуем палочку
+            stroke(100);
+            strokeWeight(2);
+            line(x, platformY, x, platformY - flagHeight);
+
+            // Рисуем треугольник-флажок
+            noStroke();
+            triangle(
+                x, platformY - flagHeight,           // Верх палочки
+                x + flagBaseWidth, platformY - flagHeight / 2, // Нижняя правая точка
+                x, platformY - flagHeight / 2       // Нижняя левая точка
+            );
+        }
+    }
+
+
 
     applyEnvironmentalForces() {
         // Apply this.gravity
@@ -298,39 +351,73 @@ class Rocket {
         this.applyForce(dragForce);
     }
 
-    updateDronBoat() {
-        const MAX_SPEED = 0.1;
-        const MOVEMENT_RANGE = 3 * this.dronBoatHeight;
+    // updateDronBoat() {
+    //     const MAX_SPEED = 0.1;
+    //     const MOVEMENT_RANGE = 3 * this.dronBoatHeight;
+    //
+    //     // Update this.acceleration and this.velocity
+    //     this.dAcc.x += this.dronBoatVelocity;
+    //     this.dVel.add(this.dAcc);
+    //     this.dVel.limit(MAX_SPEED);
+    //
+    //     // Reverse direction at edges
+    //     if (this.dronBoat.x > this.width / 2 + MOVEMENT_RANGE || this.dronBoat.x < this.width / 2 - MOVEMENT_RANGE) {
+    //         this.dVel.mult(-1);
+    //         this.dronBoatVelocity *= -1;
+    //     }
+    //
+    //     // Update position
+    //     this.dronBoat.add(this.dVel);
+    //
+    //     // Reset this.acceleration
+    //     this.dAcc.mult(0);
+    // }
 
-        // Update this.acceleration and this.velocity
-        this.dAcc.x += this.dronBoatVelocity;
-        this.dVel.add(this.dAcc);
-        this.dVel.limit(MAX_SPEED);
-
-        // Reverse direction at edges
-        if (this.dronBoat.x > this.width / 2 + MOVEMENT_RANGE || this.dronBoat.x < this.width / 2 - MOVEMENT_RANGE) {
-            this.dVel.mult(-1);
-            this.dronBoatVelocity *= -1;
-        }
-
-        // Update position
-        this.dronBoat.add(this.dVel);
-
-        // Reset this.acceleration
-        this.dAcc.mult(0);
-    }
+    // applyTouchDown() {
+    //     this.touchDown =
+    //         (this.v1.y + this.velocity.y) >= (this.height - this.radius - this.dronBoatHeight - 2) &&
+    //         (this.v1.y + this.velocity.y) <= (this.height - this.radius - this.dronBoatHeight) &&
+    //         (this.v1.x + this.velocity.x >= this.dronBoat.x - this.radius / 2) &&
+    //         ((this.v1.x + this.velocity.x + this.radius) <= (this.dronBoat.x + this.dronBoatHeight * 3 * 1.5));
+    //
+    //     if (this.touchDown && this.thrust.x === 0) {
+    //         this.velocity.x = this.dronBoatVelocity;
+    //     }
+    // }
 
     applyTouchDown() {
-        this.touchDown =
-            (this.v1.y + this.velocity.y) >= (this.height - this.radius - this.dronBoatHeight - 2) &&
-            (this.v1.y + this.velocity.y) <= (this.height - this.radius - this.dronBoatHeight) &&
-            (this.v1.x + this.velocity.x >= this.dronBoat.x - this.radius / 2) &&
-            ((this.v1.x + this.velocity.x + this.radius) <= (this.dronBoat.x + this.dronBoatHeight * 3 * 1.5));
+        const landingThreshold = this.height - this.radius;
 
-        if (this.touchDown && this.thrust.x === 0) {
-            this.velocity.x = this.dronBoatVelocity;
+        // Координаты зон
+        const landingZoneX = this.width * 0.7; // Позиция посадочной зоны
+        const landingZoneWidth = 120; // Ширина посадочной зоны
+        const startZoneX = this.width * 0.2; // Позиция стартовой зоны
+        const startZoneWidth = 100; // Ширина стартовой зоны
+
+        this.touchDown =
+            (this.v1.y + this.velocity.y) >= landingThreshold - 2 && // Проверка на соприкосновение с нижней частью экрана
+            (this.v1.y + this.velocity.y) <= landingThreshold;       // Точный диапазон соприкосновения
+
+        if (this.touchDown) {
+            // Определяем, в какой зоне произошло соприкосновение
+            if (
+                this.v1.x >= startZoneX - startZoneWidth / 2 &&
+                this.v1.x <= startZoneX + startZoneWidth / 2
+            ) {
+                this.touchDownZone = "start";
+            } else if (
+                this.v1.x >= landingZoneX - landingZoneWidth / 2 &&
+                this.v1.x <= landingZoneX + landingZoneWidth / 2
+            ) {
+                this.touchDownZone = "landing";
+            } else {
+                this.touchDownZone = "random";
+            }
+        } else {
+            this.touchDownZone = null;
         }
     }
+
 
     drawDronBoat() {
         fill(200, 80, 180);
@@ -343,7 +430,7 @@ class Rocket {
         circle(this.dronBoat.x + this.dronBoatHeight * 3, this.height - this.dronBoatHeight, 4);
     }
 
-    drawRocket() {
+    drawRocket(thrust=null, turnLeft=null, turnRight=null) {
         const centerX = this.v1.x + this.radius / 2;
         const centerY = this.v1.y + this.radius / 2;
 
@@ -371,25 +458,27 @@ class Rocket {
         stroke(0);
         strokeWeight(2);
         beginShape();
-        vertex(-this.radius / 2, this.radius / 2); // Левая нижняя точка
-        vertex(0, -this.radius / 2); // Верхняя точка
-        vertex(this.radius / 2, this.radius / 2); // Правая нижняя точка
+        vertex(-this.radius / 3, this.radius / 3); // Левая нижняя точка
+        vertex(0, -this.radius / 3 - 8); // Верхняя точка
+        vertex(this.radius / 3, this.radius / 3); // Правая нижняя точка
         endShape(CLOSE);
 
         // Ножки модуля
         stroke(0);
         strokeWeight(2);
-        line(8 + -this.radius / 2, this.radius / 2, 8 + -this.radius * 0.75, this.radius - 5); // Левая ножка
-        line(-8 + this.radius / 2, this.radius / 2, -8 + this.radius * 0.75, this.radius - 5); // Правая ножка
+        line(-this.radius / 4, this.radius / 3, -this.radius / 3, this.radius / 2); // Левая ножка
+        line(this.radius / 4, this.radius / 3, this.radius / 3, this.radius /2); // Правая ножка
 
         // Рисуем двигатель (ниже модуля)
-        fill(255, 0, 90); // Оранжевый цвет двигателя
-        noStroke();
-        triangle(
-            -this.radius * 0.2, this.radius / 2, // Левая нижняя точка двигателя
-            this.radius * 0.2, this.radius / 2,  // Правая нижняя точка двигателя
-            0, this.radius                        // Нижняя центральная точка двигателя
-        );
+        if (thrust) {
+            fill(255, 0, 90); // Оранжевый цвет двигателя
+            noStroke();
+            triangle(
+                -this.radius * 0.2, this.radius / 2, // Левая нижняя точка двигателя
+                this.radius * 0.2, this.radius / 2,  // Правая нижняя точка двигателя
+                0, this.radius                        // Нижняя центральная точка двигателя
+            );
+        }
 
         pop();
 
