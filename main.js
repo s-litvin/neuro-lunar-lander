@@ -152,6 +152,7 @@ function draw()
             // }
             console.log("Rocket restarted...");
             explorationDuration = 0;
+            aiControllDuration = 0;
             currentExplorationTime = maxExplorationTime;
         }
     }
