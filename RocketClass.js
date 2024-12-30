@@ -55,7 +55,7 @@ class Rocket {
     }
 
 
-    drawAll(thrust=null, turnLeft=null, turnRight=null) {
+    drawAll(thrust=false, turnLeft=false, turnRight=false) {
         // frameRate(this.slider.value());
         background(120);
 
@@ -92,38 +92,34 @@ class Rocket {
         this.acceleration.mult(0);
     }
 
-    handleInput(thrust=false, turnLeftEnabled=0, turnRightEnabled=0, doNothing=0) {
-
+    handleInput(thrust = false, turnLeftEnabled = false, turnRightEnabled = false) {
         if (this.isDestroyed) {
             return;
         }
 
-        this.thrustEnabled = thrust;
-
         const ROTATION_ANGLE = 1; // угол вращения в градусах
         const THRUST_FORCE = 6.5; // сила тяги
 
-        if (keyIsPressed || this.thrustEnabled || turnLeft || turnRight) {
-            if (keyCode === LEFT_ARROW || turnLeft > 0) {
-                this.orientation = this.rotateNew(this.orientation.x, this.orientation.y, -ROTATION_ANGLE);
-                // console.log('Rotate LEFT');
-            } else if (keyCode === RIGHT_ARROW || turnRight) {
-                this.orientation = this.rotateNew(this.orientation.x, this.orientation.y, ROTATION_ANGLE);
-                // console.log('Rotate RIGHT');
-            }
-
-            if (keyCode === 32 || this.thrustEnabled) {
-                this.thrustEnabled = true;
-                this.thrust = createVector(this.orientation.x, this.orientation.y);
-                this.thrust.normalize();
-                this.thrust.mult(THRUST_FORCE);
-                this.applyForce(this.thrust);
-            } else {
-                this.thrustEnabled = thrust;
-            }
+        // Проверка нажатий клавиш или команд
+        if (turnLeftEnabled) {
+            this.orientation = this.rotateNew(this.orientation.x, this.orientation.y, -ROTATION_ANGLE);
         }
 
-        this.drawInputs();
+        if (turnRightEnabled) {
+            this.orientation = this.rotateNew(this.orientation.x, this.orientation.y, ROTATION_ANGLE);
+        }
+
+        if (thrust) {
+            this.thrust = createVector(this.orientation.x, this.orientation.y);
+            this.thrust.normalize();
+            this.thrust.mult(THRUST_FORCE);
+            this.applyForce(this.thrust);
+            this.thrustEnabled = true;
+        } else {
+            this.thrustEnabled = false;
+        }
+
+        this.drawInputs(thrust, turnLeftEnabled, turnRightEnabled);
     }
 
     handleCollisions() {
@@ -513,12 +509,12 @@ class Rocket {
         strokeWeight(1);
     }
 
-    drawInputs(thrust=null, turnLeft=null, turnRight=null) {
+    drawInputs(thrust=null, turnLeft=false, turnRight=false) {
         fill(240);
         textSize(14);
 
-        text("Thrust button: " + (this.thrustEnabled ? 'ON' : 'OFF'), 10, 200);
-        text("Left button: " + (turnLeft > 0 ? 'ON' : 'OFF'), 10, 215);
-        text("Right button: " + (turnRight > 0 ? 'ON' : 'OFF'), 10, 230);
+        text("Space btn: " + (this.thrustEnabled ? 'ON' : 'OFF'), 70, 200);
+        text("L btn: " + (turnLeft ? 'ON' : 'OFF'), 70, 215);
+        text("R btn: " + (turnRight ? 'ON' : 'OFF'), 70, 230);
     }
 }
