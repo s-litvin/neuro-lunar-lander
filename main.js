@@ -10,7 +10,7 @@ let replayBuffer = [];
 let maxReplayBufferSize = 2000;
 
 let epsilon = 1.0; // Начальная случайность
-let epsilonDecay = 0.02 // Коэффициент уменьшения
+let epsilonDecay = 0.005 // Коэффициент уменьшения
 let minEpsilon = 0.1; // Минимальная случайность
 
 let rewardHistory = [];

@@ -15,16 +15,16 @@ class NeuralNetwork {
 
     init() {
         this.epoch = 0;
-        this.perceptron = new Perceptron(0.0001, 0.0001);
+        this.perceptron = new Perceptron(0.005, 0.0001);
 
         this.perceptron.createLayers([
             {size: 9, activation: Cell.LINEAR},
-            {size: 18, activation: Cell.RELU},
-            {size: 7, activation: Cell.RELU},
+            {size: 30, activation: Cell.RELU},
+            {size: 13, activation: Cell.RELU},
             {size: 4, activation: Cell.LINEAR},
         ]);
 
-        this.perceptron.setDropoutRate(0.01);
+        this.perceptron.setDropoutRate(0.5);
 
         this.syncTargetNetwork();
     }
