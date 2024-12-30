@@ -18,9 +18,9 @@ class NeuralNetwork {
         this.perceptron = new Perceptron(0.00001, 0.0001);
 
         this.perceptron.createLayers([
-            {size: 13, activation: Cell.LINEAR},
-            {size: 28, activation: Cell.RELU},
-            {size: 9, activation: Cell.RELU},
+            {size: 9, activation: Cell.LINEAR},
+            {size: 25, activation: Cell.RELU},
+            {size: 12, activation: Cell.RELU},
             {size: 4, activation: Cell.LINEAR},
         ]);
 
@@ -42,19 +42,19 @@ class NeuralNetwork {
             rocketState.orientation.x,
             rocketState.orientation.y,
 
-            rocketState.acceleration.x * 10,
-            rocketState.acceleration.y * 10,
+            // rocketState.acceleration.x * 10,
+            // rocketState.acceleration.y * 10,
 
-            rocketState.thrust.x / 6.5,
-            rocketState.thrust.y / 6.5,
+            // rocketState.thrust.x / 6.5,
+            // rocketState.thrust.y / 6.5,
 
             rocketState.isDestroyed * 1,
-            rocketState.lifeTime / 300,
+            rocketState.lifeTime / 1200,
             // Math.abs(rocketState.position.x - rocketState.dronBoatPosition.x) / rocketState.screen.width
         ];
 
-
         this.perceptron.setInputVector(inputs);
+        this.targetNeuralNetwork.setInputVector(inputs);
     }
 
     getPerceptron() {

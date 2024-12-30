@@ -20,6 +20,8 @@ class Rocket {
     touchDownZone;
     isDestroyed = false;
 
+    thrustEnabled = false;
+
     lifeTime = 1;
 
 
@@ -30,7 +32,7 @@ class Rocket {
     }
 
     initializeGameState() {
-        this.v1 = createVector(this.width / 4 - this.radius / 2, this.height); // Начальная позиция на стартовой площадке
+        this.v1 = createVector(this.width / 4 - this.radius / 2, this.height - this.radius); // Начальная позиция на стартовой площадке
         this.thrust = createVector(0, 0); // Без начального импульса
         this.gravity = createVector(0, 0.04); // Гравитация
         this.acceleration = createVector(0, 0); // Обнуление ускорения
@@ -71,15 +73,12 @@ class Rocket {
             this.lifeTime++;
         }
 
-        // this.updateDronBoat();
-
         this.updateRocketVector();
 
         ///////////// VISUALISATIONS //////////////
 
-        this.drawRocket(thrust, turnLeft, turnRight);
+        this.drawRocket();
         this.drawOrientationVisualization();
-        // this.drawDronBoat();
         this.drawTelemetry();
     }
 
@@ -93,33 +92,38 @@ class Rocket {
         this.acceleration.mult(0);
     }
 
-    handleInput(thrust=null, turnLeft=0, turnRight=0, doNothing=0) {
+    handleInput(thrust=false, turnLeftEnabled=0, turnRightEnabled=0, doNothing=0) {
 
         if (this.isDestroyed) {
             return;
         }
 
+        this.thrustEnabled = thrust;
+
         const ROTATION_ANGLE = 1; // угол вращения в градусах
         const THRUST_FORCE = 6.5; // сила тяги
 
-        if (keyIsPressed || thrust > 0 || turnLeft > 0 || turnRight > 0) {
+        if (keyIsPressed || this.thrustEnabled || turnLeft || turnRight) {
             if (keyCode === LEFT_ARROW || turnLeft > 0) {
                 this.orientation = this.rotateNew(this.orientation.x, this.orientation.y, -ROTATION_ANGLE);
                 // console.log('Rotate LEFT');
-            } else if (keyCode === RIGHT_ARROW || turnRight > 0) {
+            } else if (keyCode === RIGHT_ARROW || turnRight) {
                 this.orientation = this.rotateNew(this.orientation.x, this.orientation.y, ROTATION_ANGLE);
                 // console.log('Rotate RIGHT');
             }
 
-            if (keyCode === 32 || this.thrust > 0 || thrust > 0) {
+            if (keyCode === 32 || this.thrustEnabled) {
+                this.thrustEnabled = true;
                 this.thrust = createVector(this.orientation.x, this.orientation.y);
                 this.thrust.normalize();
                 this.thrust.mult(THRUST_FORCE);
                 this.applyForce(this.thrust);
+            } else {
+                this.thrustEnabled = thrust;
             }
         }
 
-        this.drawInputs(thrust, turnLeft, turnRight);
+        this.drawInputs();
     }
 
     handleCollisions() {
@@ -229,23 +233,24 @@ class Rocket {
         const thrustEndX = centerX + thrustVector.x * thrustArrowLength;
         const thrustEndY = centerY + thrustVector.y * thrustArrowLength;
 
-        // Рисуем стрелку для вектора тяги
-        stroke(255, 100, 0); // Оранжевый цвет
-        strokeWeight(2);
-        drawingContext.setLineDash([5, 5]); // Штриховая линия
-        line(centerX, centerY, thrustEndX, thrustEndY);
-        drawingContext.setLineDash([]); // Сбрасываем штриховку
-
-        fill(255, 100, 0);
-        noStroke();
         let arrowSize = 6;
-        let direction = thrustVector.copy().normalize();
-        let perp = direction.copy().rotate(HALF_PI).mult(arrowSize / 2);
-        triangle(
-            thrustEndX, thrustEndY,
-            thrustEndX - direction.x * arrowSize + perp.x, thrustEndY - direction.y * arrowSize + perp.y,
-            thrustEndX - direction.x * arrowSize - perp.x, thrustEndY - direction.y * arrowSize - perp.y
-        );
+        // Рисуем стрелку для вектора тяги
+        // stroke(255, 100, 0); // Оранжевый цвет
+        // strokeWeight(2);
+        // drawingContext.setLineDash([5, 5]); // Штриховая линия
+        // line(centerX, centerY, thrustEndX, thrustEndY);
+        // drawingContext.setLineDash([]); // Сбрасываем штриховку
+        //
+        // fill(255, 100, 0);
+        // noStroke();
+        //
+        // let direction = thrustVector.copy().normalize();
+        // let perp = direction.copy().rotate(HALF_PI).mult(arrowSize / 2);
+        // triangle(
+        //     thrustEndX, thrustEndY,
+        //     thrustEndX - direction.x * arrowSize + perp.x, thrustEndY - direction.y * arrowSize + perp.y,
+        //     thrustEndX - direction.x * arrowSize - perp.x, thrustEndY - direction.y * arrowSize - perp.y
+        // );
 
         // Вектор движения
         this.tmpVector = createVector(this.velocity.x, this.velocity.y);
@@ -278,10 +283,10 @@ class Rocket {
         const legendX = 750; // Позиция легенды по горизонтали
         const legendY = 400; // Позиция легенды по вертикали
 
-        fill(255, 100, 0);
+        // fill(255, 100, 0);
         noStroke();
         textSize(12);
-        text("Thrust Vector", legendX, legendY);
+        // text("Thrust Vector", legendX, legendY);
 
         fill(0, 0, 255);
         text("Velocity Vector", legendX, legendY + 20);
@@ -430,7 +435,7 @@ class Rocket {
         circle(this.dronBoat.x + this.dronBoatHeight * 3, this.height - this.dronBoatHeight, 4);
     }
 
-    drawRocket(thrust=null, turnLeft=null, turnRight=null) {
+    drawRocket() {
         const centerX = this.v1.x + this.radius / 2;
         const centerY = this.v1.y + this.radius / 2;
 
@@ -470,13 +475,13 @@ class Rocket {
         line(this.radius / 4, this.radius / 3, this.radius / 3, this.radius /2); // Правая ножка
 
         // Рисуем двигатель (ниже модуля)
-        if (thrust) {
+        if (this.thrustEnabled) {
             fill(255, 0, 90); // Оранжевый цвет двигателя
             noStroke();
             triangle(
-                -this.radius * 0.2, this.radius / 2, // Левая нижняя точка двигателя
-                this.radius * 0.2, this.radius / 2,  // Правая нижняя точка двигателя
-                0, this.radius                        // Нижняя центральная точка двигателя
+                -this.radius * 0.2, this.radius / 2.5, // Левая нижняя точка двигателя
+                this.radius * 0.2, this.radius / 2.5,  // Правая нижняя точка двигателя
+                0, random(this.radius / 1.5, this.radius)                        // Нижняя центральная точка двигателя
             );
         }
 
@@ -512,7 +517,7 @@ class Rocket {
         fill(240);
         textSize(14);
 
-        text("Thrust button: " + (thrust > 0 ? 'ON' : 'OFF'), 10, 200);
+        text("Thrust button: " + (this.thrustEnabled ? 'ON' : 'OFF'), 10, 200);
         text("Left button: " + (turnLeft > 0 ? 'ON' : 'OFF'), 10, 215);
         text("Right button: " + (turnRight > 0 ? 'ON' : 'OFF'), 10, 230);
     }
