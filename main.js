@@ -15,13 +15,14 @@ let minEpsilon = 0.1; // Минимальная случайность
 
 let rewardHistory = [];
 let averageReward = 0;
-let rewardWindow = 60;
+let rewardWindow = 120;
 
 let currentExplorationAction = null;
 let explorationDuration = 0;
-let maxExplorationDuration = 60; // Максимальное число шагов для одного действия
+let maxExplorationDuration = 100; // Максимальное число шагов для одного действия
 
-let maxExplorationTime = 600; // Максимальное число шагов для исследования
+let maxExplorationTime = 1200; // Максимальное число шагов для исследования
+let currentExplorationTime = maxExplorationTime;
 
 let rewardHistoryGraph = [];
 let errorHistoryGraph = [];
@@ -54,22 +55,21 @@ function draw()
         noLoop();
     }
 
-    if (enableGreed && Math.random() < epsilon) {
-        // Случайное действие
-
-        if (explorationDuration === 0) {
-            // Случайное действие
-            let action = Math.floor(random(0, 4));
-            currentExplorationAction = {
-                thrust: action === 0,
-                turnLeft: action === 1,
-                turnRight: action === 2,
-                doNothing: action === 3,
-                index: action
-            };
-            explorationDuration = Math.floor(Math.random() * maxExplorationDuration) + 1;
-        }
+    if (enableGreed && explorationDuration > 0) {
+        // Продолжаем выполнять текущее случайное действие
         explorationDuration--;
+        commands = currentExplorationAction;
+    } else if (enableGreed && Math.random() < epsilon) {
+        // Начинаем новое случайное действие
+        let action = Math.floor(random(0, 4));
+        currentExplorationAction = {
+            thrust: action === 0,
+            turnLeft: action === 1,
+            turnRight: action === 2,
+            doNothing: action === 3,
+            index: action
+        };
+        explorationDuration = Math.floor(Math.random() * maxExplorationDuration) + 1;
         commands = currentExplorationAction;
     } else {
         // Действие, предсказанное нейросетью
@@ -78,6 +78,7 @@ function draw()
         perceptron.forwardPass();
         commands = neuralNetwork.getOutputCommands();
     }
+
 
     thrust = commands.thrust;
     turnLeft = commands.turnLeft;
@@ -102,7 +103,7 @@ function draw()
     }
 
     stepCount++;
-    if (enableTraining && stepCount % 300 === 0 && replayBuffer.length >= rewardWindow && epsilon > minEpsilon) {
+    if (enableTraining && stepCount % 900 === 0 && replayBuffer.length >= rewardWindow) {
         const batch = sampleBatch(replayBuffer, rewardWindow);
         // console.log(`Step ${stepCount}: Training batch`, batch);
         neuralNetwork.trainFromBatch(batch, 0.99); // gamma = 0.99
@@ -118,10 +119,15 @@ function draw()
 
     averageReward = rewardHistory.reduce((a, b) => a + b, 0) / rewardHistory.length;
 
-    if (enableReset && (stepCount % maxExplorationTime === 0 || rocketState.isDestroyed)) {
+    if (enableReset) {
+        currentExplorationTime--;
 
-        rocket.setup(); // Перезапуск ракеты каждые 500 шагов или после уничтожения
-        console.log("Rocket restarted...");
+        if (currentExplorationTime < 1 || rocketState.isDestroyed) {
+            rocket.initializeGameState();
+            console.log("Rocket restarted...");
+            explorationDuration = 0;
+            currentExplorationTime = maxExplorationTime;
+        }
     }
 
     if (stepCount % 300 === 0) {
@@ -146,6 +152,17 @@ function calculateReward(state) {
         return -1; // Максимальный штраф
     }
 
+    if (state.touchDown === true) {
+        // Проверка нахождения в стартовой зоне
+        if (state.touchDownZone === 'start') {
+            return -0.5;
+        } else if (state.touchDownZone === 'landing') {
+            return 1;
+        } else {
+            reward += 500
+        }
+    }
+
     // Штраф за отклонение ориентации от вертикали
     const orientationVector = createVector(state.orientation.x, state.orientation.y);
     const verticalVector = createVector(0, -1);
@@ -163,6 +180,7 @@ function calculateReward(state) {
     const stableSpeedBonus = map(verticalSpeed, 0, 2, 150, 0); // Чем ближе к 0, тем больше бонус
     reward += stableSpeedBonus;
 
+    // Бонус за время жизни
     reward += state.lifeTime * 2;
 
     // Ограничение награды в диапазоне [-1, 1]
@@ -194,23 +212,28 @@ function drawGraphs() {
     fill(255, 255, 255, 50); // Белый с прозрачностью
     stroke(0);
     rect(offsetX, offsetY, graphWidth, graphHeight); // Фон графика средней награды
-    rect(offsetX, offsetY + graphHeight + 10, graphWidth, graphHeight); // Фон графика ошибки
+    // rect(offsetX, offsetY + graphHeight + 10, graphWidth, graphHeight); // Фон графика ошибки
 
     // Сетка для графиков
     stroke(200); // Светло-серый цвет сетки
     for (let i = 0; i <= 4; i++) { // Горизонтальные линии
         const y = offsetY + (graphHeight / 4) * i;
+        if (i == 2) {
+            strokeWeight(1.5);
+        } else {
+            strokeWeight(0.5);
+        }
         line(offsetX, y, offsetX + graphWidth, y);
-        line(offsetX, y + graphHeight + 10, offsetX + graphWidth, y + graphHeight + 10);
+        // line(offsetX, y + graphHeight + 10, offsetX + graphWidth, y + graphHeight + 10);
     }
     for (let i = 0; i <= 4; i++) { // Вертикальные линии
         const x = offsetX + (graphWidth / 4) * i;
         line(x, offsetY, x, offsetY + graphHeight);
-        line(x, offsetY + graphHeight + 10, x, offsetY + graphHeight + 10 + graphHeight);
+        // line(x, offsetY + graphHeight + 10, x, offsetY + graphHeight + 10 + graphHeight);
     }
 
     // График средней награды (линии и точки)
-    stroke(0, 255, 0); // Зеленый цвет линий
+    stroke(0, 122, 0); // Зеленый цвет линий
     noFill();
     beginShape();
     for (let i = 0; i < rewardHistoryGraph.length; i++) {
@@ -228,7 +251,6 @@ function drawGraphs() {
         const y = map(rewardHistoryGraph[i], -1, 1, offsetY + graphHeight, offsetY);
         circle(x, y, 3);
     }
-    fill(0);
     textSize(12);
     text("Reward avg", offsetX + 5, offsetY + 15);
     text("1", offsetX - 8, offsetY + 5);
@@ -241,24 +263,25 @@ function drawGraphs() {
     beginShape();
     for (let i = 0; i < errorHistoryGraph.length; i++) {
         const x = map(i, 0, errorHistoryGraph.length, offsetX, offsetX + graphWidth);
-        const y = map(errorHistoryGraph[i], 0, Math.max(...errorHistoryGraph, 1), offsetY + graphHeight + 10 + graphHeight, offsetY + graphHeight + 10);
+        const y = map(errorHistoryGraph[i], 0, Math.max(...errorHistoryGraph, 1), offsetY + graphHeight, offsetY);
         vertex(x, y); // Прямые линии между точками
     }
     endShape();
 
     // Точки для ошибки сети
-    fill(255, 0, 0); // Красный цвет
+    fill(155, 0, 0); // Красный цвет
     noStroke();
     for (let i = 0; i < errorHistoryGraph.length; i++) {
         const x = map(i, 0, errorHistoryGraph.length, offsetX, offsetX + graphWidth);
-        const y = map(errorHistoryGraph[i], 0, Math.max(...errorHistoryGraph, 1), offsetY + graphHeight + 10 + graphHeight, offsetY + graphHeight + 10);
+        const y = map(errorHistoryGraph[i], 0, Math.max(...errorHistoryGraph, 1), offsetY + graphHeight, offsetY);
         circle(x, y, 3);
     }
-    fill(0);
     textSize(12);
-    text("Network error", offsetX + 5, offsetY + graphHeight + 25);
+    text("Network error", offsetX + 5, offsetY + 30);
 
+    fill(0);
     text("Epoch:" + neuralNetwork.epoch + "     Epsilon greedy: " + epsilon.toFixed(3) + "   Reward avg:" + averageReward.toFixed(3), offsetX + 5, offsetY - 35);
+    text("Replay buffer:" + replayBuffer.length, offsetX + 5, offsetY - 22);
 }
 
 
@@ -278,7 +301,7 @@ function initUI()
     const lineHeight = 20;
 
     // Learning Rate Slider
-    const lrLabel = createP(`Learning Rate: ${learningRate.toFixed(4)}`).position(posX, posY + 0 * lineHeight - 8);
+    let lrLabel = createP(`Learning Rate: ${learningRate.toFixed(4)}`).position(posX, posY + 0 * lineHeight - 8);
     lrSlider = createSlider(0.0001, 0.01, learningRate, 0.0001);
     lrSlider.style('width', '200px').position(posX, posY + 1 * lineHeight);
     lrSlider.input(() => {
@@ -287,17 +310,22 @@ function initUI()
     });
 
     // Replay Buffer Size Slider
-    const bufferLabel = createP(`Replay Buffer Size: ${maxReplayBufferSize}`).position(posX, posY + 2 * lineHeight - 8);
-    bufferSlider = createSlider(200, 2000, maxReplayBufferSize, 50);
+    let bufferLabel = createP(`Replay Buffer Size: ${maxReplayBufferSize}`).position(posX, posY + 2 * lineHeight - 8);
+    bufferSlider = createSlider(200, 10000, maxReplayBufferSize, 100);
     bufferSlider.style('width', '200px').position(posX, posY + 3 * lineHeight);
     bufferSlider.input(() => {
         maxReplayBufferSize = bufferSlider.value();
+
+        if (replayBuffer.length > maxReplayBufferSize) {
+            replayBuffer = replayBuffer.slice(-maxReplayBufferSize);
+        }
+
         bufferLabel.html(`Replay Buffer Size: ${maxReplayBufferSize}`);
     });
 
     // Batch Size Slider
-    const batchLabel = createP(`Batch Size: ${rewardWindow}`).position(posX, posY + 4 * lineHeight - 8);
-    batchSlider = createSlider(30, 500, rewardWindow, 10);
+    let batchLabel = createP(`Batch Size: ${rewardWindow}`).position(posX, posY + 4 * lineHeight - 8);
+    batchSlider = createSlider(30, 1000, rewardWindow, 10);
     batchSlider.style('width', '200px').position(posX, posY + 5 * lineHeight);
     batchSlider.input(() => {
         rewardWindow = batchSlider.value();
