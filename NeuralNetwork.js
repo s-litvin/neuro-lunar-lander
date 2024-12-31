@@ -15,12 +15,12 @@ class NeuralNetwork {
 
     init() {
         this.epoch = 0;
-        this.perceptron = new Perceptron(0.0001, 0.0001);
+        this.perceptron = new Perceptron(0.00005, 0.0001);
 
         this.perceptron.createLayers([
             {size: 9, activation: Cell.LINEAR},
-            {size: 17, activation: Cell.RELU},
-            {size: 11, activation: Cell.RELU},
+            {size: 30, activation: Cell.RELU},
+            {size: 15, activation: Cell.RELU},
             {size: 4, activation: Cell.LINEAR},
         ]);
 
