@@ -145,11 +145,11 @@ function draw()
     if (enableReset) {
         currentExplorationTime--;
 
-        if (currentExplorationTime < 1 || rocketState.isDestroyed) {
+        if ((currentExplorationTime < 1 && aiControllDuration < 1) ||
+            rocketState.isDestroyed ||
+            rocketState.lifeTime >= maxExplorationTime) {
+
             rocket.initializeGameState();
-            // if (rocketState.isDestroyed) {
-            //     console.log(replayBuffer);exit();
-            // }
             console.log("Rocket restarted...");
             explorationDuration = 0;
             aiControllDuration = 0;
