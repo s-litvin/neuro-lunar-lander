@@ -7,7 +7,7 @@ let perceptron;
 let stepCount = 0;
 
 let replayBuffer = [];
-let maxReplayBufferSize = 2000;
+let maxReplayBufferSize = 3500;
 
 let epsilon = 1.0; // Начальная случайность
 let epsilonDecay = 0.01 // Коэффициент уменьшения
@@ -15,7 +15,7 @@ let minEpsilon = 0.1; // Минимальная случайность
 
 let rewardHistory = [];
 let averageReward = 0;
-let rewardWindow = 130;
+let rewardWindow = 320;
 
 let currentExplorationAction = null;
 let explorationDuration = 0;
