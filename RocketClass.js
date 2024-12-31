@@ -57,7 +57,6 @@ class Rocket {
 
     drawAll(thrust=false, turnLeft=false, turnRight=false) {
         // frameRate(this.slider.value());
-        background(120);
 
         this.drawStartPlatform();
         this.drawLandingPlatform();

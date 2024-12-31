@@ -104,6 +104,8 @@ function draw()
     turnLeft = keyState.left || commands.turnLeft;
     turnRight = keyState.right || commands.turnRight;
 
+    background(120);
+    this.drawRewardGradient();
     rocket.drawAll(thrust, turnLeft, turnRight);
     this.drawGraphs();
     this.drawPilot();
@@ -182,30 +184,40 @@ function calculateReward(state) {
     if (state.touchDown === true) {
         // Проверка нахождения в стартовой зоне
         if (state.touchDownZone === 'start') {
-            return -0.5;
+            return -0.5; // Штраф за приземление в стартовой зоне
         } else if (state.touchDownZone === 'landing') {
-            return 1;
+            return 1; // Максимальная награда за посадку в зоне
         } else {
-            reward += 500
+            reward += 500; // Награда за посадку вне стартовой зоны, но не в зоне посадки
         }
     }
 
+    // Поощрение за нахождение в центре экрана
+    const centerX = state.screen.width / 2;
+    const centerY = state.screen.height / 2;
+    const distanceFromCenter = dist(state.position.x, state.position.y, centerX, centerY);
+
+    // Чем ближе к центру, тем выше награда, и наоборот
+    const maxDistance = dist(0, 0, centerX, centerY); // Максимальное расстояние от центра
+    const centerReward = map(distanceFromCenter, 0, maxDistance, 500, -900); // Штраф/поощрение
+    reward += centerReward;
+
     // Штраф за отклонение ориентации от вертикали
-    const orientationVector = createVector(state.orientation.x, state.orientation.y);
-    const verticalVector = createVector(0, -1);
-    const angle = degrees(orientationVector.angleBetween(verticalVector));
-    const orientationPenalty = map(abs(angle), 0, 180, 0, 100); // Чем больше угол, тем сильнее штраф
-    reward -= orientationPenalty;
+    // const orientationVector = createVector(state.orientation.x, state.orientation.y);
+    // const verticalVector = createVector(0, -1);
+    // const angle = degrees(orientationVector.angleBetween(verticalVector));
+    // const orientationPenalty = map(abs(angle), 0, 180, 0, 100); // Чем больше угол, тем сильнее штраф
+    // reward -= orientationPenalty;
 
     // Штраф за высокую горизонтальную скорость
-    const horizontalSpeed = abs(state.velocity.x);
-    const speedPenalty = map(horizontalSpeed, 0, 5, 0, 600); // Линейное увеличение штрафа
-    reward -= speedPenalty;
+    // const horizontalSpeed = abs(state.velocity.x);
+    // const speedPenalty = map(horizontalSpeed, 0, 5, 0, 600); // Линейное увеличение штрафа
+    // reward -= speedPenalty;
 
     // Бонус за стабильную скорость
-    const verticalSpeed = abs(state.velocity.y);
-    const stableSpeedBonus = map(verticalSpeed, 0, 2, 150, 0); // Чем ближе к 0, тем больше бонус
-    reward += stableSpeedBonus;
+    // const verticalSpeed = abs(state.velocity.y);
+    // const stableSpeedBonus = map(verticalSpeed, 0, 2, 150, 0); // Чем ближе к 0, тем больше бонус
+    // reward += stableSpeedBonus;
 
     // Бонус за время жизни
     reward += state.lifeTime * 2;
@@ -217,6 +229,7 @@ function calculateReward(state) {
 
     return reward;
 }
+
 
 
 function sampleBatch(buffer, batchSize) {
@@ -335,6 +348,23 @@ function drawGraphs() {
     text("Epoch:" + neuralNetwork.epoch + "     Epsilon greedy: " + epsilon.toFixed(3) + "   Reward avg:" + averageReward.toFixed(3), offsetX + 5, offsetY - 35);
     text("Replay buffer:" + replayBuffer.length, offsetX + 5, offsetY - 22);
 }
+
+function drawRewardGradient() {
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const maxRadius = Math.min(width, height) / 2; // Максимальный радиус градиента
+
+    noFill();
+    for (let r = maxRadius; r > 0; r -= 10) {
+        const alpha = map(r, 0, maxRadius, 255, 0); // Альфа-канал (прозрачность)
+        const colorValue = map(r, 0, maxRadius, 0, 255); // Цвет от центра к краю
+
+        stroke(colorValue, 255 - colorValue, 0, alpha); // Градиент от зелёного к красному
+        strokeWeight(2);
+        ellipse(centerX, centerY, r * 2); // Рисуем окружности для градиента
+    }
+}
+
 
 function drawPilot() {
     if (pilot === PILOT_AI) {
