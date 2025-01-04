@@ -7,7 +7,7 @@ class Environment {
     // dronBoatHeight = 20;
     // dronBoatVelocity = 0.01;
 
-    v1;
+    position;
     mass = 100;
     cfr = 0.01;
     gravity;
@@ -36,7 +36,7 @@ class Environment {
     }
 
     reset() {
-        this.v1 = createVector(this.width / 4 - this.radius / 2, this.height - this.radius); // Начальная позиция на стартовой площадке
+        this.position = createVector(this.width / 4 - this.radius / 2, this.height - this.radius); // Начальная позиция на стартовой площадке
         this.thrust = createVector(0, 0); // Без начального импульса
         this.gravity = createVector(0, 0.04); // Гравитация
         this.acceleration = createVector(0, 0); // Обнуление ускорения
@@ -106,7 +106,7 @@ class Environment {
     stepPhysics() {
         this.velocity.add(this.acceleration);
         this.velocity.limit(12);
-        this.v1.add(this.velocity);
+        this.position.add(this.velocity);
     }
 
     resetAcceleration() {
@@ -148,8 +148,8 @@ class Environment {
         const landingThreshold = this.height - this.radius;
 
         // Если ракета приземлилась (жесткое касание)
-        if (this.v1.y + this.velocity.y >= landingThreshold) {
-            this.v1.y = landingThreshold; // Установить позицию на уровне земли
+        if (this.position.y + this.velocity.y >= landingThreshold) {
+            this.position.y = landingThreshold; // Установить позицию на уровне земли
             const orientationVector = createVector(this.orientation.x, this.orientation.y);
             const verticalVector = createVector(0, -1);
             const angle = degrees(orientationVector.angleBetween(verticalVector));
@@ -175,10 +175,10 @@ class Environment {
             const obstacleBottom = obstacle.y - 40;
 
             if (
-                this.v1.x + this.radius > obstacleLeft &&
-                this.v1.x - this.radius < obstacleRight &&
-                this.v1.y + this.radius > obstacleTop &&
-                this.v1.y - this.radius < obstacleBottom
+                this.position.x + this.radius > obstacleLeft &&
+                this.position.x - this.radius < obstacleRight &&
+                this.position.y + this.radius > obstacleTop &&
+                this.position.y - this.radius < obstacleBottom
             ) {
                 this.isDestroyed = true; // Ракета уничтожена
                 console.log("Rocket hit an obstacle!");
@@ -186,23 +186,23 @@ class Environment {
         }
 
         // Handle collisions on the X axis
-        if ((this.v1.x + this.velocity.x) > (this.width - this.radius)) {
-            this.v1.x = 0;
-        } else if ((this.v1.x + this.velocity.x) < 0) {
-            this.v1.x = this.width - this.radius;
+        if ((this.position.x + this.velocity.x) > (this.width - this.radius)) {
+            this.position.x = 0;
+        } else if ((this.position.x + this.velocity.x) < 0) {
+            this.position.x = this.width - this.radius;
         }
 
         // Handle collisions with the top boundary
-        if ((this.v1.y + this.velocity.y) <= 0) {
-            this.v1.y = 0; // Set position at the top boundary
+        if ((this.position.y + this.velocity.y) <= 0) {
+            this.position.y = 0; // Set position at the top boundary
             if (this.velocity.y < 0) { // If moving upwards
                 this.velocity.y *= -0.5; // Lose energy upon collision
             }
         }
 
         // Handle collisions with the ground
-        if ((this.v1.y + this.velocity.y) >= (this.height - this.radius)) {
-            this.v1.y = this.height - this.radius; // Set position at ground level
+        if ((this.position.y + this.velocity.y) >= (this.height - this.radius)) {
+            this.position.y = this.height - this.radius; // Set position at ground level
 
             if (this.velocity.y > 0) { // If falling
                 this.velocity.y *= -0.5; // Lose energy upon collision
@@ -225,7 +225,7 @@ class Environment {
 
     observe() {
         return {
-            position: { x: this.v1.x, y: this.v1.y },
+            position: { x: this.position.x, y: this.position.y },
             velocity: { x: this.velocity.x, y: this.velocity.y, mag: this.velocity.mag() },
             orientation: { x: this.orientation.x, y: this.orientation.y },
             acceleration: { x: this.acceleration.x, y: this.acceleration.y },
@@ -265,8 +265,8 @@ class Environment {
 
     drawOrientationVisualization() {
         // Центр ракеты
-        const centerX = this.v1.x + this.radius / 2;
-        const centerY = this.v1.y + this.radius / 2;
+        const centerX = this.position.x + this.radius / 2;
+        const centerY = this.position.y + this.radius / 2;
 
         // Вектор тяги
         let thrustVector = createVector(this.orientation.x, this.orientation.y);
@@ -443,19 +443,19 @@ class Environment {
         const startZoneWidth = 100; // Ширина стартовой зоны
 
         this.touchDown =
-            (this.v1.y + this.velocity.y) >= landingThreshold - 2 && // Проверка на соприкосновение с нижней частью экрана
-            (this.v1.y + this.velocity.y) <= landingThreshold;       // Точный диапазон соприкосновения
+            (this.position.y + this.velocity.y) >= landingThreshold - 2 && // Проверка на соприкосновение с нижней частью экрана
+            (this.position.y + this.velocity.y) <= landingThreshold;       // Точный диапазон соприкосновения
 
         if (this.touchDown) {
             // Определяем, в какой зоне произошло соприкосновение
             if (
-                this.v1.x >= startZoneX - startZoneWidth / 2 &&
-                this.v1.x <= startZoneX + startZoneWidth / 2
+                this.position.x >= startZoneX - startZoneWidth / 2 &&
+                this.position.x <= startZoneX + startZoneWidth / 2
             ) {
                 this.touchDownZone = "start";
             } else if (
-                this.v1.x >= landingZoneX - landingZoneWidth / 2 &&
-                this.v1.x <= landingZoneX + landingZoneWidth / 2
+                this.position.x >= landingZoneX - landingZoneWidth / 2 &&
+                this.position.x <= landingZoneX + landingZoneWidth / 2
             ) {
                 this.touchDownZone = "landing";
             } else {
@@ -479,15 +479,15 @@ class Environment {
     }
 
     drawRocket() {
-        const centerX = this.v1.x + this.radius / 2;
-        const centerY = this.v1.y + this.radius / 2;
+        const centerX = this.position.x + this.radius / 2;
+        const centerY = this.position.y + this.radius / 2;
 
         // Баундери бокс
         stroke(22, 22, 22);
         strokeWeight(0.5);
         drawingContext.setLineDash([5, 5]); // Пунктир
         noFill();
-        rect(this.v1.x, this.v1.y, this.radius, this.radius);
+        rect(this.position.x, this.position.y, this.radius, this.radius);
         drawingContext.setLineDash([]); // Сбрасываем пунктир
 
         // Рисуем лунный модуль
@@ -546,7 +546,7 @@ class Environment {
         text("grv > " + nf(this.gravity.x, 0, 3) + " : " + nf(this.gravity.y, 0, 3), 10, 50);
         text("acc > " + nf(this.acceleration.x, 0, 3) + " : " + nf(this.acceleration.y, 0, 3), 10, 65);
         text("vel > " + nf(this.velocity.x, 0, 3) + " : " + nf(this.velocity.y, 0, 3), 10, 80);
-        text("pos > " + nf(this.v1.x, 0, 2) + " : " + nf(this.v1.y, 0, 2), 10, 95);
+        text("pos > " + nf(this.position.x, 0, 2) + " : " + nf(this.position.y, 0, 2), 10, 95);
         text("mag > " + nf(this.velocity.mag(), 0, 5), 10, 110);
         text("this.mass > " + nf(this.mass, 0, 3), 10, 125);
         text("this.cfr > " + nf(this.cfr, 0, 4), 10, 140);

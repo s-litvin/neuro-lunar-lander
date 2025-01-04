@@ -124,7 +124,6 @@ class NeuralNetwork {
         });
 
         this.epoch++;
-        console.log(this.networkError, batch.length)
         errorHistoryGraph.push(this.networkError / batch.length); // Средняя ошибка
         if (errorHistoryGraph.length > graphMaxPoints) {
             errorHistoryGraph.shift();
