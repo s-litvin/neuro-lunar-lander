@@ -1,21 +1,21 @@
-let rocket;
-let thrust = 0;
-let turnLeft = 0;
-let turnRight = 0;
+let environment;
+let actionThrust = 0;
+let actionTurnLeft = 0;
+let actionTurnRight = 0;
 let neuralNetwork;
 let perceptron;
 let stepCount = 0;
 
-let replayBuffer = [];
-let maxReplayBufferSize = 3500;
+let experienceBuffer = [];
+let maxBufferSize = 3500;
 
 let epsilon = 1.0; // Начальная случайность
 let epsilonDecay = 0.002 // Коэффициент уменьшения
 let minEpsilon = 0.05; // Минимальная случайность
 
-let rewardHistory = [];
+let rewardBuffer = [];
 let averageReward = 0;
-let rewardWindow = 320;
+let batchSize = 320;
 
 let currentExplorationAction = null;
 let explorationDuration = 0;
@@ -25,8 +25,8 @@ let maxExplorationDuration = 100; // Максимальное число шаг�
 let maxExplorationTime = 1200; // Максимальное число шагов для исследования
 let currentExplorationTime = maxExplorationTime;
 
-let rewardHistoryGraph = [];
-let errorHistoryGraph = [];
+let rewardGraph = [];
+let lossGraph = [];
 let graphMaxPoints = 300; // Максимальное количество точек на графике
 
 let lrSlider, explorationDurationSlider, bufferSlider, batchSlider, greedCheckbox, trainingCheckbox, resetCheckbox, learningRate = 0.001, pauseCheckbox;
@@ -35,12 +35,12 @@ let enableGreed = true;
 let enableReset = true;
 let pause = false;
 
-const PILOT_AI = 'ai';
-const PILOT_ROBOT = 'robot';
-const PILOT_HUMAN = 'human';
-let pilot = PILOT_AI;
+const MODE_AI = 'ai';
+const MODE_AGENT = 'robot';
+const MODE_MANUAL = 'human';
+let controlMode = MODE_AI;
 
-let keyState = {
+let manualInput = {
     left: false,
     right: false,
     thrust: false
@@ -48,8 +48,8 @@ let keyState = {
 
 function setup()
 {
-    rocket = new Environment();
-    rocket.setup();
+    environment = new Environment();
+    environment.setup();
 
     neuralNetwork = new NeuralNetwork();
     neuralNetwork.init();
@@ -59,7 +59,7 @@ function setup()
 
 function draw()
 {
-    let rocketState = rocket.observe();
+    let rocketState = environment.observe();
 
     let commands;
 
@@ -71,7 +71,7 @@ function draw()
         // Продолжаем выполнять текущее случайное действие
         explorationDuration--;
         commands = currentExplorationAction;
-        pilot = PILOT_ROBOT;
+        controlMode = MODE_AGENT;
     } else if (enableGreed && Math.random() < epsilon && aiControllDuration === 0) {
         // Начинаем новое случайное действие
         let action = Math.floor(random(0, 4));
@@ -84,7 +84,7 @@ function draw()
         };
         explorationDuration = Math.floor(Math.random() * maxExplorationDuration) + 1;
         commands = currentExplorationAction;
-        pilot = PILOT_ROBOT;
+        controlMode = MODE_AGENT;
     } else {
         if (aiControllDuration > 0) {
             aiControllDuration--;
@@ -96,38 +96,38 @@ function draw()
             aiControllDuration = Math.floor(Math.random() * maxExplorationDuration * 1.5) + maxExplorationDuration / 2;
         }
         commands = currentExplorationAction;
-        pilot = PILOT_AI;
+        controlMode = MODE_AI;
     }
 
 
-    thrust = keyState.thrust || commands.thrust;
-    turnLeft = keyState.left || commands.turnLeft;
-    turnRight = keyState.right || commands.turnRight;
+    actionThrust = manualInput.thrust || commands.thrust;
+    actionTurnLeft = manualInput.left || commands.turnLeft;
+    actionTurnRight = manualInput.right || commands.turnRight;
 
     background(120);
-    this.drawRewardGradient();
-    rocket.render(thrust, turnLeft, turnRight);
-    this.drawGraphs();
-    this.drawPilot();
+    this.renderRewardZone();
+    environment.render(actionThrust, actionTurnLeft, actionTurnRight);
+    this.renderGraphs();
+    this.renderControlMode();
 
-    const nextState = rocket.observe();
+    const nextState = environment.observe();
 
     const reward = calculateReward(rocketState);
 
-    replayBuffer.push({
+    experienceBuffer.push({
         state: rocketState,
         action: commands.index, // Индекс действия (0, 1 или 2, 3 - do nothing)
         reward: reward,
         nextState: nextState
     });
 
-    if (replayBuffer.length > maxReplayBufferSize) {
-        replayBuffer.shift();
+    if (experienceBuffer.length > maxBufferSize) {
+        experienceBuffer.shift();
     }
 
     stepCount++;
-    if (enableTraining && stepCount % 100 === 0 && replayBuffer.length >= rewardWindow) {
-        const batch = sampleBatch(replayBuffer, rewardWindow);
+    if (enableTraining && stepCount % 200 === 0 && experienceBuffer.length >= batchSize) {
+        const batch = sampleBatch(experienceBuffer, batchSize);
         // console.log(`Step ${stepCount}: Training batch`, batch);
         neuralNetwork.trainFromBatch(batch, 0.99); // gamma = 0.99
 
@@ -137,12 +137,12 @@ function draw()
         }
     }
 
-    rewardHistory.push(reward);
-    if (rewardHistory.length > rewardWindow) {
-        rewardHistory.shift();
+    rewardBuffer.push(reward);
+    if (rewardBuffer.length > batchSize) {
+        rewardBuffer.shift();
     }
 
-    averageReward = rewardHistory.reduce((a, b) => a + b, 0) / rewardHistory.length;
+    averageReward = rewardBuffer.reduce((a, b) => a + b, 0) / rewardBuffer.length;
     if (averageReward < -0.3 && epsilon < 0.49) {
         epsilon = Math.min(1.0, epsilon + 0.01); // Увеличиваем случайность
     } else if (averageReward > 0.5) {
@@ -157,7 +157,7 @@ function draw()
             rocketState.isDestroyed || rocketState.done ||
             rocketState.timestep >= maxExplorationTime) {
 
-            rocket.reset();
+            environment.reset();
             console.log("Rocket restarted...");
             explorationDuration = 0;
             aiControllDuration = 0;
@@ -166,13 +166,13 @@ function draw()
     }
 
     if (stepCount % 300 === 0) {
-        rewardHistoryGraph.push(averageReward);
-        if (rewardHistoryGraph.length > graphMaxPoints) {
-            rewardHistoryGraph.shift();
+        rewardGraph.push(averageReward);
+        if (rewardGraph.length > graphMaxPoints) {
+            rewardGraph.shift();
         }
     }
 
-    rewardWindow = batchSlider.value();
+    batchSize = batchSlider.value();
     enableGreed = greedCheckbox.checked();
     enableTraining = trainingCheckbox.checked();
     enableReset = resetCheckbox.checked();
@@ -254,30 +254,30 @@ function sampleBatch(buffer, batchSize) {
 
 function keyPressed() {
     if (keyCode === LEFT_ARROW) {
-        keyState.left = true;
+        manualInput.left = true;
     }
     if (keyCode === RIGHT_ARROW) {
-        keyState.right = true;
+        manualInput.right = true;
     }
     if (keyCode === 32) { // Spacebar for thrust
-        keyState.thrust = true;
+        manualInput.thrust = true;
     }
 }
 
 function keyReleased() {
     if (keyCode === LEFT_ARROW) {
-        keyState.left = false;
+        manualInput.left = false;
     }
     if (keyCode === RIGHT_ARROW) {
-        keyState.right = false;
+        manualInput.right = false;
     }
     if (keyCode === 32) { // Spacebar for thrust
-        keyState.thrust = false;
+        manualInput.thrust = false;
     }
 }
 
 
-function drawGraphs() {
+function renderGraphs() {
     const graphWidth = 300;  // Ширина графика
     const graphHeight = 150; // Высота графика
     const offsetX = 530;      // Отступ слева
@@ -293,7 +293,7 @@ function drawGraphs() {
     stroke(200); // Светло-серый цвет сетки
     for (let i = 0; i <= 4; i++) { // Горизонтальные линии
         const y = offsetY + (graphHeight / 4) * i;
-        if (i == 2) {
+        if (i === 2) {
             strokeWeight(1.5);
         } else {
             strokeWeight(0.5);
@@ -311,9 +311,9 @@ function drawGraphs() {
     stroke(0, 122, 0); // Зеленый цвет линий
     noFill();
     beginShape();
-    for (let i = 0; i < rewardHistoryGraph.length; i++) {
-        const x = map(i, 0, rewardHistoryGraph.length, offsetX, offsetX + graphWidth);
-        const y = map(rewardHistoryGraph[i], -1, 1, offsetY + graphHeight, offsetY);
+    for (let i = 0; i < rewardGraph.length; i++) {
+        const x = map(i, 0, rewardGraph.length, offsetX, offsetX + graphWidth);
+        const y = map(rewardGraph[i], -1, 1, offsetY + graphHeight, offsetY);
         vertex(x, y); // Прямые линии между точками
     }
     endShape();
@@ -321,9 +321,9 @@ function drawGraphs() {
     // Точки для средней награды
     fill(0, 255, 0); // Зеленый цвет
     noStroke();
-    for (let i = 0; i < rewardHistoryGraph.length; i++) {
-        const x = map(i, 0, rewardHistoryGraph.length, offsetX, offsetX + graphWidth);
-        const y = map(rewardHistoryGraph[i], -1, 1, offsetY + graphHeight, offsetY);
+    for (let i = 0; i < rewardGraph.length; i++) {
+        const x = map(i, 0, rewardGraph.length, offsetX, offsetX + graphWidth);
+        const y = map(rewardGraph[i], -1, 1, offsetY + graphHeight, offsetY);
         circle(x, y, 3);
     }
     textSize(12);
@@ -336,9 +336,9 @@ function drawGraphs() {
     stroke(255, 0, 0); // Красный цвет линий
     noFill();
     beginShape();
-    for (let i = 0; i < errorHistoryGraph.length; i++) {
-        const x = map(i, 0, errorHistoryGraph.length, offsetX, offsetX + graphWidth);
-        const y = map(errorHistoryGraph[i], 0, Math.max(...errorHistoryGraph, 1), offsetY + graphHeight, offsetY);
+    for (let i = 0; i < lossGraph.length; i++) {
+        const x = map(i, 0, lossGraph.length, offsetX, offsetX + graphWidth);
+        const y = map(lossGraph[i], 0, Math.max(...lossGraph, 1), offsetY + graphHeight, offsetY);
         vertex(x, y); // Прямые линии между точками
     }
     endShape();
@@ -346,9 +346,9 @@ function drawGraphs() {
     // Точки для ошибки сети
     fill(155, 0, 0); // Красный цвет
     noStroke();
-    for (let i = 0; i < errorHistoryGraph.length; i++) {
-        const x = map(i, 0, errorHistoryGraph.length, offsetX, offsetX + graphWidth);
-        const y = map(errorHistoryGraph[i], 0, Math.max(...errorHistoryGraph, 1), offsetY + graphHeight, offsetY);
+    for (let i = 0; i < lossGraph.length; i++) {
+        const x = map(i, 0, lossGraph.length, offsetX, offsetX + graphWidth);
+        const y = map(lossGraph[i], 0, Math.max(...lossGraph, 1), offsetY + graphHeight, offsetY);
         circle(x, y, 3);
     }
     textSize(12);
@@ -356,10 +356,10 @@ function drawGraphs() {
 
     fill(0);
     text("Epoch:" + neuralNetwork.epoch + "     Epsilon greedy: " + epsilon.toFixed(3) + "   Reward avg:" + averageReward.toFixed(3), offsetX + 5, offsetY - 35);
-    text("Replay buffer:" + replayBuffer.length, offsetX + 5, offsetY - 22);
+    text("Replay buffer:" + experienceBuffer.length, offsetX + 5, offsetY - 22);
 }
 
-function drawRewardGradient() {
+function renderRewardZone() {
     const centerX = width / 2;
     const centerY = height / 2;
     const maxRadius = Math.min(width, height) / 2; // Максимальный радиус градиента
@@ -376,10 +376,10 @@ function drawRewardGradient() {
 }
 
 
-function drawPilot() {
-    if (pilot === PILOT_AI) {
+function renderControlMode() {
+    if (controlMode === MODE_AI) {
         image(AIIcon, 10, 185, 50, 50);
-    } else if (pilot === PILOT_ROBOT) {
+    } else if (controlMode === MODE_AGENT) {
         image(robotIcon, 10, 185, 50, 50);
     }
 }
@@ -409,26 +409,26 @@ function initUI()
     });
 
     // Replay Buffer Size Slider
-    let bufferLabel = createP(`Replay Buffer Size: ${maxReplayBufferSize}`).position(posX, posY + 2 * lineHeight - 8);
-    bufferSlider = createSlider(200, 10000, maxReplayBufferSize, 100);
+    let bufferLabel = createP(`Replay Buffer Size: ${maxBufferSize}`).position(posX, posY + 2 * lineHeight - 8);
+    bufferSlider = createSlider(200, 10000, maxBufferSize, 100);
     bufferSlider.style('width', '200px').position(posX, posY + 3 * lineHeight);
     bufferSlider.input(() => {
-        maxReplayBufferSize = bufferSlider.value();
+        maxBufferSize = bufferSlider.value();
 
-        if (replayBuffer.length > maxReplayBufferSize) {
-            replayBuffer = replayBuffer.slice(-maxReplayBufferSize);
+        if (experienceBuffer.length > maxBufferSize) {
+            experienceBuffer = experienceBuffer.slice(-maxBufferSize);
         }
 
-        bufferLabel.html(`Replay Buffer Size: ${maxReplayBufferSize}`);
+        bufferLabel.html(`Replay Buffer Size: ${maxBufferSize}`);
     });
 
     // Batch Size Slider
-    let batchLabel = createP(`Batch Size: ${rewardWindow}`).position(posX, posY + 4 * lineHeight - 8);
-    batchSlider = createSlider(30, 1000, rewardWindow, 10);
+    let batchLabel = createP(`Batch Size: ${batchSize}`).position(posX, posY + 4 * lineHeight - 8);
+    batchSlider = createSlider(30, 1000, batchSize, 10);
     batchSlider.style('width', '200px').position(posX, posY + 5 * lineHeight);
     batchSlider.input(() => {
-        rewardWindow = batchSlider.value();
-        batchLabel.html(`Batch Size: ${rewardWindow}`);
+        batchSize = batchSlider.value();
+        batchLabel.html(`Batch Size: ${batchSize}`);
     });
 
     // Checkboxes

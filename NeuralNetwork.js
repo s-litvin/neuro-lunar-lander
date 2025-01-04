@@ -19,7 +19,7 @@ class NeuralNetwork {
 
         this.perceptron.createLayers([
             {size: 9, activation: Cell.LINEAR},
-            {size: 15, activation: Cell.RELU},
+            {size: 25, activation: Cell.RELU},
             {size: 4, activation: Cell.LINEAR},
         ]);
 
@@ -124,9 +124,9 @@ class NeuralNetwork {
         });
 
         this.epoch++;
-        errorHistoryGraph.push(this.networkError / batch.length); // Средняя ошибка
-        if (errorHistoryGraph.length > graphMaxPoints) {
-            errorHistoryGraph.shift();
+        lossGraph.push(this.networkError / batch.length); // Средняя ошибка
+        if (lossGraph.length > graphMaxPoints) {
+            lossGraph.shift();
         }
 
     }
