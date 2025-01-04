@@ -19,11 +19,11 @@ class NeuralNetwork {
 
         this.perceptron.createLayers([
             {size: 9, activation: Cell.LINEAR},
-            {size: 35, activation: Cell.RELU},
+            {size: 15, activation: Cell.RELU},
             {size: 4, activation: Cell.LINEAR},
         ]);
 
-        this.perceptron.setDropoutRate(0.01);
+        this.perceptron.setDropoutRate(0.0);
 
         this.syncTargetNetwork();
     }
@@ -47,8 +47,8 @@ class NeuralNetwork {
             // rocketState.thrust.x / 6.5,
             // rocketState.thrust.y / 6.5,
 
-            rocketState.isDestroyed * 1,
-            rocketState.lifeTime / 1200,
+            rocketState.done * 1,
+            rocketState.timestep / 1200,
             // Math.abs(rocketState.position.x - rocketState.dronBoatPosition.x) / rocketState.screen.width
         ];
 
@@ -124,6 +124,7 @@ class NeuralNetwork {
         });
 
         this.epoch++;
+        console.log(this.networkError, batch.length)
         errorHistoryGraph.push(this.networkError / batch.length); // Средняя ошибка
         if (errorHistoryGraph.length > graphMaxPoints) {
             errorHistoryGraph.shift();

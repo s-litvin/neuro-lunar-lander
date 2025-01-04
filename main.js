@@ -48,7 +48,7 @@ let keyState = {
 
 function setup()
 {
-    rocket = new Rocket();
+    rocket = new Environment();
     rocket.setup();
 
     neuralNetwork = new NeuralNetwork();
@@ -59,7 +59,7 @@ function setup()
 
 function draw()
 {
-    let rocketState = rocket.getState();
+    let rocketState = rocket.observe();
 
     let commands;
 
@@ -106,11 +106,11 @@ function draw()
 
     background(120);
     this.drawRewardGradient();
-    rocket.drawAll(thrust, turnLeft, turnRight);
+    rocket.render(thrust, turnLeft, turnRight);
     this.drawGraphs();
     this.drawPilot();
 
-    const nextState = rocket.getState();
+    const nextState = rocket.observe();
 
     const reward = calculateReward(rocketState);
 
@@ -126,7 +126,7 @@ function draw()
     }
 
     stepCount++;
-    if (enableTraining && stepCount % 300 === 0 && replayBuffer.length >= rewardWindow) {
+    if (enableTraining && stepCount % 100 === 0 && replayBuffer.length >= rewardWindow) {
         const batch = sampleBatch(replayBuffer, rewardWindow);
         // console.log(`Step ${stepCount}: Training batch`, batch);
         neuralNetwork.trainFromBatch(batch, 0.99); // gamma = 0.99
@@ -154,10 +154,10 @@ function draw()
         currentExplorationTime--;
 
         if ((currentExplorationTime < 1 && aiControllDuration < 1) ||
-            rocketState.isDestroyed ||
-            rocketState.lifeTime >= maxExplorationTime) {
+            rocketState.isDestroyed || rocketState.done ||
+            rocketState.timestep >= maxExplorationTime) {
 
-            rocket.initializeGameState();
+            rocket.reset();
             console.log("Rocket restarted...");
             explorationDuration = 0;
             aiControllDuration = 0;
@@ -230,7 +230,7 @@ function calculateReward(state) {
     // reward += stableSpeedBonus;
 
     // Бонус за время жизни
-    reward += state.lifeTime * 2;
+    reward += state.timestep * 2;
 
     // Ограничение награды в диапазоне [-1, 1]
     const maxReward = 1000;

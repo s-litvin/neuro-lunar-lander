@@ -1,4 +1,4 @@
-class Rocket {
+class Environment {
 
 
     width = 840;
@@ -19,19 +19,23 @@ class Rocket {
     touchDown = false;
     touchDownZone;
     isDestroyed = false;
+    done = false;
+
 
     thrustEnabled = false;
 
-    lifeTime = 1;
+    timestep = 1;
 
+    obstacles = [];
 
     setup() {
         createCanvas(this.width, this.height);
-        this.initializeGameState();
+        this.reset();
         this.initializeUI();
+        this.createObstacles();
     }
 
-    initializeGameState() {
+    reset() {
         this.v1 = createVector(this.width / 4 - this.radius / 2, this.height - this.radius); // Начальная позиция на стартовой площадке
         this.thrust = createVector(0, 0); // Без начального импульса
         this.gravity = createVector(0, 0.04); // Гравитация
@@ -43,10 +47,27 @@ class Rocket {
         // this.dVel = createVector(0, 0);
         // this.dAcc = createVector(0.01, 0);
         this.isDestroyed = false;
-        this.lifeTime = 0;
+        this.timestep = 0;
     }
 
+    createObstacles() {
+        this.obstacles = [];
+        const obstacleCount = 0;
+        const obstacleWidth = 100;
+        const obstacleHeight = 20;
+        const obstacleSpacing = this.width / (obstacleCount + 3);
 
+        for (let i = 1; i <= obstacleCount; i++) {
+            const x = obstacleSpacing * i;
+            const y = this.height / 2;
+            this.obstacles.push({
+                x,
+                y,
+                width: obstacleWidth,
+                height: obstacleHeight,
+            });
+        }
+    }
 
     initializeUI() {
         // this.slider = createSlider(1, 60, 55, 1);
@@ -55,7 +76,7 @@ class Rocket {
     }
 
 
-    drawAll(thrust=false, turnLeft=false, turnRight=false) {
+    render(thrust=false, turnLeft=false, turnRight=false) {
         // frameRate(this.slider.value());
 
         this.drawStartPlatform();
@@ -63,25 +84,26 @@ class Rocket {
 
         this.resetAcceleration();
 
-        this.handleInput(thrust, turnLeft, turnRight);
+        this.applyAction(thrust, turnLeft, turnRight);
         this.handleCollisions();
 
-        if (!this.isDestroyed) {
-            this.applyTouchDown();
+        if (!this.isDestroyed && !this.done) {
+            this.checkLanding();
             this.applyEnvironmentalForces()
-            this.lifeTime++;
+            this.timestep++;
         }
 
-        this.updateRocketVector();
+        this.stepPhysics();
 
         ///////////// VISUALISATIONS //////////////
 
         this.drawRocket();
+        this.drawObstacles();
         this.drawOrientationVisualization();
         this.drawTelemetry();
     }
 
-    updateRocketVector() {
+    stepPhysics() {
         this.velocity.add(this.acceleration);
         this.velocity.limit(12);
         this.v1.add(this.velocity);
@@ -91,7 +113,7 @@ class Rocket {
         this.acceleration.mult(0);
     }
 
-    handleInput(thrust = false, turnLeftEnabled = false, turnRightEnabled = false) {
+    applyAction(thrust = false, turnLeftEnabled = false, turnRightEnabled = false) {
         if (this.isDestroyed) {
             return;
         }
@@ -146,6 +168,23 @@ class Rocket {
             }
         }
 
+        for (const obstacle of this.obstacles) {
+            const obstacleLeft = obstacle.x - 40;
+            const obstacleRight = obstacle.x + 40;
+            const obstacleTop = obstacle.y - 50;
+            const obstacleBottom = obstacle.y - 40;
+
+            if (
+                this.v1.x + this.radius > obstacleLeft &&
+                this.v1.x - this.radius < obstacleRight &&
+                this.v1.y + this.radius > obstacleTop &&
+                this.v1.y - this.radius < obstacleBottom
+            ) {
+                this.isDestroyed = true; // Ракета уничтожена
+                console.log("Rocket hit an obstacle!");
+            }
+        }
+
         // Handle collisions on the X axis
         if ((this.v1.x + this.velocity.x) > (this.width - this.radius)) {
             this.v1.x = 0;
@@ -184,7 +223,7 @@ class Rocket {
         }
     }
 
-    getState() {
+    observe() {
         return {
             position: { x: this.v1.x, y: this.v1.y },
             velocity: { x: this.velocity.x, y: this.velocity.y, mag: this.velocity.mag() },
@@ -196,7 +235,8 @@ class Rocket {
             screen: { width: this.width, height: this.height },
             thrust: { x: this.thrust.x, y: this.thrust.y },
             isDestroyed: this.isDestroyed,
-            lifeTime: this.lifeTime
+            done: this.done,
+            timestep: this.timestep
         };
     }
 
@@ -213,6 +253,14 @@ class Rocket {
     applyForce(force) {
         let f = p5.Vector.div(force, this.mass);
         this.acceleration.add(f);
+    }
+
+    drawObstacles() {
+        fill(200, 0, 0);
+        noStroke();
+        for (const obstacle of this.obstacles) {
+            rect(obstacle.x - obstacle.width / 2, obstacle.y - obstacle.height / 2, obstacle.width, obstacle.height);
+        }
     }
 
     drawOrientationVisualization() {
@@ -385,7 +433,7 @@ class Rocket {
     //     }
     // }
 
-    applyTouchDown() {
+    checkLanding() {
         const landingThreshold = this.height - this.radius;
 
         // Координаты зон
@@ -494,7 +542,7 @@ class Rocket {
         textSize(14);
         noStroke();
 
-        text("life > " + this.lifeTime, 10, 35);
+        text("life > " + this.timestep, 10, 35);
         text("grv > " + nf(this.gravity.x, 0, 3) + " : " + nf(this.gravity.y, 0, 3), 10, 50);
         text("acc > " + nf(this.acceleration.x, 0, 3) + " : " + nf(this.acceleration.y, 0, 3), 10, 65);
         text("vel > " + nf(this.velocity.x, 0, 3) + " : " + nf(this.velocity.y, 0, 3), 10, 80);
