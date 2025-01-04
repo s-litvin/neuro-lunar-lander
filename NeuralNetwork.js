@@ -19,11 +19,12 @@ class NeuralNetwork {
 
         this.perceptron.createLayers([
             {size: 9, activation: Cell.LINEAR},
-            {size: 25, activation: Cell.RELU},
+            {size: 45, activation: Cell.RELU},
+            {size: 15, activation: Cell.RELU},
             {size: 4, activation: Cell.LINEAR},
         ]);
 
-        this.perceptron.setDropoutRate(0.0);
+        this.perceptron.setDropoutRate(0.2);
 
         this.syncTargetNetwork();
     }

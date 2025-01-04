@@ -10,7 +10,7 @@ let experienceBuffer = [];
 let maxBufferSize = 3500;
 
 let epsilon = 1.0; // Начальная случайность
-let epsilonDecay = 0.002 // Коэффициент уменьшения
+let epsilonDecay = 0.005 // Коэффициент уменьшения
 let minEpsilon = 0.05; // Минимальная случайность
 
 let rewardBuffer = [];
@@ -71,6 +71,7 @@ function draw()
         // Продолжаем выполнять текущее случайное действие
         explorationDuration--;
         commands = currentExplorationAction;
+        commands = heuristicPolicy(rocketState);
         controlMode = MODE_AGENT;
     } else if (enableGreed && Math.random() < epsilon && aiControllDuration === 0) {
         // Начинаем новое случайное действие
@@ -143,11 +144,11 @@ function draw()
     }
 
     averageReward = rewardBuffer.reduce((a, b) => a + b, 0) / rewardBuffer.length;
-    if (averageReward < -0.3 && epsilon < 0.49) {
-        epsilon = Math.min(1.0, epsilon + 0.01); // Увеличиваем случайность
-    } else if (averageReward > 0.5) {
-        epsilon = Math.max(minEpsilon, epsilon - 0.01); // Уменьшаем случайность
-    }
+    // if (averageReward < -0.3 && epsilon < 0.49) {
+    //     epsilon = Math.min(1.0, epsilon + 0.01); // Увеличиваем случайность
+    // } else if (averageReward > 0.5) {
+    //     epsilon = Math.max(minEpsilon, epsilon - 0.01); // Уменьшаем случайность
+    // }
 
 
     if (enableReset) {
@@ -392,6 +393,42 @@ function togglePause() {
         loop(); // Возобновляем цикл
     }
 }
+
+function heuristicPolicy(state) {
+    const { position, velocity, orientation } = state;
+
+    // Центр экрана
+    const centerX = environment.width / 2;
+
+    // Инициализация действий
+    let thrust = false;
+    let turnLeft = false;
+    let turnRight = false;
+
+    // Ускорение вверх, если ракета слишком низко или скорость мала
+    if (position.y > environment.height * 0.6 || velocity.y > 1) {
+        thrust = true;
+    }
+
+    // Поворот влево/вправо для стабилизации
+    if (state.timestep % 10 < random(2, 9)) {
+        if (orientation.x > 0.12) {
+            turnLeft = true;
+        } else if (orientation.x < -0.12) {
+            turnRight = true;
+        }
+    } else {
+        // Ориентирование на центр
+        if (position.x < centerX - 20) {
+            turnRight = true;
+        } else if (position.x > centerX + 20) {
+            turnLeft = true;
+        }
+    }
+
+    return { thrust, turnLeft, turnRight };
+}
+
 
 function initUI()
 {
