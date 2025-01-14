@@ -19,7 +19,7 @@ class NeuralNetwork {
 
         this.perceptron.createLayers([
             {size: 9, activation: Cell.LINEAR},
-            {size: 15, activation: Cell.RELU},
+            {size: 35, activation: Cell.RELU},
             {size: 15, activation: Cell.RELU},
             {size: 4, activation: Cell.LINEAR},
         ]);

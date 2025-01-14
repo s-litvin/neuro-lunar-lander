@@ -10,8 +10,8 @@ let stepCount = 0;
 let experienceBuffer = [];
 let maxBufferSize = 3500;
 
-let epsilon = 0.5; // Начальная случайность
-let epsilonDecay = 0.05 // Коэффициент уменьшения
+let epsilon = 1.0; // Начальная случайность
+let epsilonDecay = 0.005 // Коэффициент уменьшения
 let minEpsilon = 0.05; // Минимальная случайность
 
 let rewardBuffer = [];
@@ -409,7 +409,7 @@ function renderAIControls() {
         const barX = offsetX + i * (barWidth + 10);
         const barY = offsetY + graphHeight - normalizedHeight;
 
-        fill(i === currentExplorationAction.index ? 'rgba(0, 0, 255, 0.6)' : 'rgba(128, 128, 128, 0.6)');
+        fill(i === currentExplorationAction.index && controlMode === MODE_AI ? 'rgba(0, 0, 255, 0.6)' : 'rgba(128, 128, 128, 0.6)');
         noStroke();
         rect(barX, barY, barWidth, normalizedHeight);
 
@@ -421,7 +421,7 @@ function renderAIControls() {
 
     fill(0);
     textSize(fontSize);
-    text("Q-Values", offsetX, offsetY - 15);
+    text("Q-Values", offsetX, offsetY - 3);
 }
 
 
