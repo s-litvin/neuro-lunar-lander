@@ -36,12 +36,12 @@ class Environment {
     }
 
     reset() {
-        this.position = createVector(this.width / 4 - this.radius / 2, this.height - this.radius); // Начальная позиция на стартовой площадке
-        this.thrust = createVector(0, 0); // Без начального импульса
-        this.gravity = createVector(0, 0.04); // Гравитация
-        this.acceleration = createVector(0, 0); // Обнуление ускорения
-        this.velocity = createVector(0, 0); // Обнуление скорости
-        this.orientation = createVector(0, -1); // Ракета смотрит вверх
+        this.position = createVector(this.width / 4 - this.radius / 2, this.height - this.radius);
+        this.thrust = createVector(0, 0);
+        this.gravity = createVector(0, 0.04);
+        this.acceleration = createVector(0, 0);
+        this.velocity = createVector(0, 0);
+        this.orientation = createVector(0, -1);
         this.tmpVector = createVector(0, 0);
         // this.dronBoat = createVector(this.width / 2, this.height - this.dronBoatHeight); // Зона посадки
         // this.dVel = createVector(0, 0);
@@ -118,10 +118,9 @@ class Environment {
             return;
         }
 
-        const ROTATION_ANGLE = 1; // угол вращения в градусах
-        const THRUST_FORCE = 6.5; // сила тяги
+        const ROTATION_ANGLE = 1;
+        const THRUST_FORCE = 6.5;
 
-        // Проверка нажатий клавиш или команд
         if (turnLeftEnabled) {
             this.orientation = this.rotateNew(this.orientation.x, this.orientation.y, -ROTATION_ANGLE);
         }
@@ -147,24 +146,24 @@ class Environment {
 
         const landingThreshold = this.height - this.radius;
 
-        // Если ракета приземлилась (жесткое касание)
         if (this.position.y + this.velocity.y >= landingThreshold) {
-            this.position.y = landingThreshold; // Установить позицию на уровне земли
+            this.position.y = landingThreshold;
             const orientationVector = createVector(this.orientation.x, this.orientation.y);
             const verticalVector = createVector(0, -1);
             const angle = degrees(orientationVector.angleBetween(verticalVector));
-            const tolerance = 15; // Допустимое отклонение в градусах
+            const tolerance = 15;
 
+            // hard landing
             if (Math.abs(angle) > tolerance || this.velocity.mag() > 2) {
-                this.isDestroyed = true; // Ракета разбита
-                this.velocity.set(0, 0); // Обнуляем скорость
-                this.acceleration.set(0, 0); // Обнуляем ускорение
-                this.thrust.set(0, 0);   // Выключаем тягу
+                this.isDestroyed = true;
+                this.velocity.set(0, 0);
+                this.acceleration.set(0, 0);
+                this.thrust.set(0, 0);
                 console.log("Rocket destroyed!");
             } else {
-                // Мягкое приземление
+                // soft landing
                 this.velocity.y = 0;
-                this.velocity.x *= 0.96; // Трение
+                this.velocity.x *= 0.96; // drag
             }
         }
 
@@ -180,7 +179,7 @@ class Environment {
                 this.position.y + this.radius > obstacleTop &&
                 this.position.y - this.radius < obstacleBottom
             ) {
-                this.isDestroyed = true; // Ракета уничтожена
+                this.isDestroyed = true;
                 console.log("Rocket hit an obstacle!");
             }
         }
@@ -194,30 +193,27 @@ class Environment {
 
         // Handle collisions with the top boundary
         if ((this.position.y + this.velocity.y) <= 0) {
-            this.position.y = 0; // Set position at the top boundary
-            if (this.velocity.y < 0) { // If moving upwards
-                this.velocity.y *= -0.5; // Lose energy upon collision
+            this.position.y = 0;
+            if (this.velocity.y < 0) {
+                this.velocity.y *= -0.5;
             }
         }
 
         // Handle collisions with the ground
         if ((this.position.y + this.velocity.y) >= (this.height - this.radius)) {
-            this.position.y = this.height - this.radius; // Set position at ground level
+            this.position.y = this.height - this.radius;
 
-            if (this.velocity.y > 0) { // If falling
-                this.velocity.y *= -0.5; // Lose energy upon collision
+            if (this.velocity.y > 0) {
+                this.velocity.y *= -0.5;
             }
 
-            // Stop completely if speed is very low and no thrust is applied
             if (Math.abs(this.velocity.y) < 0.1 && this.thrust.mag() === 0) {
                 this.velocity.y = 0;
             }
 
-            // Apply friction on the ground
             this.velocity.x *= 0.96;
         }
 
-        // Eliminate jitter at low horizontal speeds
         if (Math.abs(this.velocity.x) < 0.01) {
             this.velocity.x = 0;
         }
@@ -264,17 +260,15 @@ class Environment {
     }
 
     drawOrientationVisualization() {
-        // Центр ракеты
         const centerX = this.position.x + this.radius / 2;
         const centerY = this.position.y + this.radius / 2;
 
-        // Вектор тяги
-        let thrustVector = createVector(this.orientation.x, this.orientation.y);
-        const thrustMagnitude = this.velocity.mag(); // Длина стрелки для тяги
-        const thrustArrowLength = map(thrustMagnitude, 0, 12, 20, 160); // Масштабирование
+        // let thrustVector = createVector(this.orientation.x, this.orientation.y);
+        const thrustMagnitude = this.velocity.mag();
+        const thrustArrowLength = map(thrustMagnitude, 0, 12, 20, 160);
 
-        const thrustEndX = centerX + thrustVector.x * thrustArrowLength;
-        const thrustEndY = centerY + thrustVector.y * thrustArrowLength;
+        // const thrustEndX = centerX + thrustVector.x * thrustArrowLength;
+        // const thrustEndY = centerY + thrustVector.y * thrustArrowLength;
 
         let arrowSize = 6;
         // Рисуем стрелку для вектора тяги
@@ -295,20 +289,18 @@ class Environment {
         //     thrustEndX - direction.x * arrowSize - perp.x, thrustEndY - direction.y * arrowSize - perp.y
         // );
 
-        // Вектор движения
         this.tmpVector = createVector(this.velocity.x, this.velocity.y);
-        const velocityMagnitude = this.tmpVector.mag(); // Длина стрелки для движения
+        const velocityMagnitude = this.tmpVector.mag();
         const velocityArrowLength = constrain(
-            map(velocityMagnitude, 0, 12, 20, 160), // Масштабирование
+            map(velocityMagnitude, 0, 12, 20, 160),
             0,
-            thrustArrowLength // Ограничение длины вектора движения
+            thrustArrowLength
         );
 
         const velocityEndX = centerX + this.tmpVector.x * velocityArrowLength / velocityMagnitude;
         const velocityEndY = centerY + this.tmpVector.y * velocityArrowLength / velocityMagnitude;
 
-        // Рисуем стрелку для вектора движения
-        stroke(0, 0, 255); // Синий цвет
+        stroke(0, 0, 255);
         strokeWeight(2);
         line(centerX, centerY, velocityEndX, velocityEndY);
 
@@ -321,63 +313,49 @@ class Environment {
             velocityEndX - velocityDirection.x * arrowSize + velocityPerp.x, velocityEndY - velocityDirection.y * arrowSize + velocityPerp.y,
             velocityEndX - velocityDirection.x * arrowSize - velocityPerp.x, velocityEndY - velocityDirection.y * arrowSize - velocityPerp.y
         );
-
-        // Легенда
-        const legendX = 750; // Позиция легенды по горизонтали
-        const legendY = 400; // Позиция легенды по вертикали
-
-        // fill(255, 100, 0);
-        noStroke();
-        textSize(12);
-        // text("Thrust Vector", legendX, legendY);
-
-        fill(0, 0, 255);
-        text("Velocity Vector", legendX, legendY + 20);
     }
 
     drawStartPlatform() {
         const platformWidth = 100;
         const platformHeight = 10;
-        const platformX = this.width / 4 - platformWidth / 2; // Стартовая площадка левее центра
+        const platformX = this.width / 4 - platformWidth / 2;
         const platformY = this.height - platformHeight;
 
-        fill(150, 150, 150); // Серый цвет
+        fill(150, 150, 150);
         noStroke();
-        rect(platformX, platformY, platformWidth, platformHeight); // Рисуем стартовую площадку
+        rect(platformX, platformY, platformWidth, platformHeight); // start plate
     }
 
     drawLandingPlatform() {
-        const platformWidth = this.radius * 3; // Посадочная площадка в 3 раза шире ракеты
+        const platformWidth = this.radius * 3;
         const platformHeight = 10;
-        const platformX = (this.width * 3) / 4 - platformWidth / 2; // Посадочная площадка правее центра
+        const platformX = (this.width * 3) / 4 - platformWidth / 2;
         const platformY = this.height - platformHeight;
 
-        // Платформа
-        fill(100, 100, 200); // Синий цвет
+        // Platform
+        fill(100, 100, 200);
         noStroke();
         rect(platformX, platformY, platformWidth, platformHeight);
 
-        // Флажки
+        // Flags
         const flagHeight = 30;
         const flagBaseWidth = 5;
         const flagXPositions = [
-            platformX,                       // Левый край платформы
-            platformX + platformWidth - 5    // Правый край платформы
+            platformX,                       // left edge
+            platformX + platformWidth - 5    // right edge
         ];
 
-        fill(255, 0, 0); // Красный цвет флажков
+        fill(255, 0, 0);
         for (let x of flagXPositions) {
-            // Рисуем палочку
             stroke(100);
             strokeWeight(2);
             line(x, platformY, x, platformY - flagHeight);
 
-            // Рисуем треугольник-флажок
             noStroke();
             triangle(
-                x, platformY - flagHeight,           // Верх палочки
-                x + flagBaseWidth, platformY - flagHeight / 2, // Нижняя правая точка
-                x, platformY - flagHeight / 2       // Нижняя левая точка
+                x, platformY - flagHeight,
+                x + flagBaseWidth, platformY - flagHeight / 2,
+                x, platformY - flagHeight / 2
             );
         }
     }
@@ -437,17 +415,16 @@ class Environment {
         const landingThreshold = this.height - this.radius;
 
         // Координаты зон
-        const landingZoneX = this.width * 0.7; // Позиция посадочной зоны
-        const landingZoneWidth = 120; // Ширина посадочной зоны
-        const startZoneX = this.width * 0.2; // Позиция стартовой зоны
-        const startZoneWidth = 100; // Ширина стартовой зоны
+        const landingZoneX = this.width * 0.7;
+        const landingZoneWidth = 120;
+        const startZoneX = this.width * 0.2;
+        const startZoneWidth = 100;
 
         this.touchDown =
-            (this.position.y + this.velocity.y) >= landingThreshold - 2 && // Проверка на соприкосновение с нижней частью экрана
-            (this.position.y + this.velocity.y) <= landingThreshold;       // Точный диапазон соприкосновения
+            (this.position.y + this.velocity.y) >= landingThreshold - 2 &&
+            (this.position.y + this.velocity.y) <= landingThreshold;
 
         if (this.touchDown) {
-            // Определяем, в какой зоне произошло соприкосновение
             if (
                 this.position.x >= startZoneX - startZoneWidth / 2 &&
                 this.position.x <= startZoneX + startZoneWidth / 2
@@ -482,58 +459,54 @@ class Environment {
         const centerX = this.position.x + this.radius / 2;
         const centerY = this.position.y + this.radius / 2;
 
-        // Баундери бокс
+        // boundary box
         stroke(22, 22, 22);
         strokeWeight(0.5);
-        drawingContext.setLineDash([5, 5]); // Пунктир
+        drawingContext.setLineDash([5, 5]);
         noFill();
         rect(this.position.x, this.position.y, this.radius, this.radius);
-        drawingContext.setLineDash([]); // Сбрасываем пунктир
+        drawingContext.setLineDash([]);
 
-        // Рисуем лунный модуль
+        // lunar module
         push();
-        translate(centerX, centerY); // Перемещаем систему координат в центр ракеты
+        translate(centerX, centerY);
         const angle = atan2(this.orientation.y, this.orientation.x);
-        rotate(angle + HALF_PI); // Поворачиваем в соответствии с вектором тяги
+        rotate(angle + HALF_PI);
 
-        // Основное тело модуля
         if (this.isDestroyed) {
-            fill(150, 0, 0); // Красный цвет для разбитой ракеты
+            fill(150, 0, 0);
         } else {
-            fill(180, 180, 180); // Обычный цвет
+            fill(180, 180, 180);
         }
 
         stroke(0);
         strokeWeight(2);
         beginShape();
-        vertex(-this.radius / 3, this.radius / 3); // Левая нижняя точка
-        vertex(0, -this.radius / 3 - 8); // Верхняя точка
-        vertex(this.radius / 3, this.radius / 3); // Правая нижняя точка
+        vertex(-this.radius / 3, this.radius / 3);
+        vertex(0, -this.radius / 3 - 8);
+        vertex(this.radius / 3, this.radius / 3);
         endShape(CLOSE);
 
-        // Ножки модуля
         stroke(0);
         strokeWeight(2);
-        line(-this.radius / 4, this.radius / 3, -this.radius / 3, this.radius / 2); // Левая ножка
-        line(this.radius / 4, this.radius / 3, this.radius / 3, this.radius /2); // Правая ножка
+        line(-this.radius / 4, this.radius / 3, -this.radius / 3, this.radius / 2);
+        line(this.radius / 4, this.radius / 3, this.radius / 3, this.radius /2);
 
-        // Рисуем двигатель (ниже модуля)
         if (this.thrustEnabled) {
-            fill(255, 0, 90); // Оранжевый цвет двигателя
+            fill(255, 0, 90);
             noStroke();
             triangle(
-                -this.radius * 0.2, this.radius / 2.5, // Левая нижняя точка двигателя
-                this.radius * 0.2, this.radius / 2.5,  // Правая нижняя точка двигателя
-                0, random(this.radius / 1.5, this.radius)                        // Нижняя центральная точка двигателя
+                -this.radius * 0.2, this.radius / 2.5,
+                this.radius * 0.2, this.radius / 2.5,
+                0, random(this.radius / 1.5, this.radius)
             );
         }
 
         pop();
 
-        // Центр ракеты
         fill(0);
         noStroke();
-        circle(centerX, centerY, 4); // Маленький круг для обозначения центра
+        circle(centerX, centerY, 4);
     }
 
 

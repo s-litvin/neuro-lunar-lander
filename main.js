@@ -2,6 +2,7 @@ let environment;
 let actionThrust = 0;
 let actionTurnLeft = 0;
 let actionTurnRight = 0;
+let qValues = [];
 let neuralNetwork;
 let perceptron;
 let stepCount = 0;
@@ -9,13 +10,13 @@ let stepCount = 0;
 let experienceBuffer = [];
 let maxBufferSize = 3500;
 
-let epsilon = 1.0; // Начальная случайность
-let epsilonDecay = 0.005 // Коэффициент уменьшения
+let epsilon = 0.5; // Начальная случайность
+let epsilonDecay = 0.05 // Коэффициент уменьшения
 let minEpsilon = 0.05; // Минимальная случайность
 
 let rewardBuffer = [];
 let averageReward = 0;
-let batchSize = 320;
+let batchSize = 150;
 
 let currentExplorationAction = null;
 let explorationDuration = 0;
@@ -100,7 +101,7 @@ function draw()
         controlMode = MODE_AI;
     }
 
-
+    qValues = currentExplorationAction.values || [0, 0, 0, 0];
     actionThrust = manualInput.thrust || commands.thrust;
     actionTurnLeft = manualInput.left || commands.turnLeft;
     actionTurnRight = manualInput.right || commands.turnRight;
@@ -110,6 +111,7 @@ function draw()
     environment.render(actionThrust, actionTurnLeft, actionTurnRight);
     this.renderGraphs();
     this.renderControlMode();
+    this.renderAIControls();
 
     const nextState = environment.observe();
 
@@ -385,22 +387,59 @@ function renderControlMode() {
     }
 }
 
+function renderAIControls() {
+    const maxQValue = Math.max(...qValues) + 2;
+    const minQValue = Math.min(...qValues) - 2;
+
+    const graphWidth = 200;
+    const graphHeight = 100;
+    const offsetX = 630;
+    const offsetY = 250;
+    const barWidth = graphWidth / qValues.length - 8;
+    const fontSize = 10;
+
+    fill(255, 255, 255, 50);
+    stroke(0);
+    rect(offsetX, offsetY, graphWidth, graphHeight);
+
+    const labels = ['space', 'L', 'R', 'NOP'];
+
+    for (let i = 0; i < qValues.length; i++) {
+        const normalizedHeight = map(qValues[i], minQValue, maxQValue, 0, graphHeight);
+        const barX = offsetX + i * (barWidth + 10);
+        const barY = offsetY + graphHeight - normalizedHeight;
+
+        fill(i === currentExplorationAction.index ? 'rgba(0, 0, 255, 0.6)' : 'rgba(128, 128, 128, 0.6)');
+        noStroke();
+        rect(barX, barY, barWidth, normalizedHeight);
+
+        fill(0);
+        textSize(fontSize);
+        text(qValues[i].toFixed(2), barX + barWidth / 2 - 15, offsetY + graphHeight - 2);
+        text(labels[i], barX + barWidth / 2 - 15, offsetY + 10);
+    }
+
+    fill(0);
+    textSize(fontSize);
+    text("Q-Values", offsetX, offsetY - 15);
+}
+
+
+
 function togglePause() {
-    pause = pauseCheckbox.checked(); // Получаем состояние чекбокса
+    pause = pauseCheckbox.checked();
     if (pause) {
-        noLoop(); // Останавливаем цикл
+        noLoop();
     } else {
-        loop(); // Возобновляем цикл
+        loop();
     }
 }
 
 function heuristicPolicy(state) {
     const { position, velocity, orientation } = state;
 
-    // Центр экрана
     const centerX = environment.width / 2;
 
-    // Инициализация действий
     let thrust = false;
     let turnLeft = false;
     let turnRight = false;
