@@ -13,18 +13,18 @@ class NeuralNetwork {
         );
     }
 
-    init() {
+    init(learningRate = 0.0001, dropOutRate = 0.1, firstLayerCount = 15, secondLayerCount = 5) {
         this.epoch = 0;
-        this.perceptron = new Perceptron(0.00001, 0.0001);
+        this.perceptron = new Perceptron(learningRate, 0.0001);
 
         this.perceptron.createLayers([
-            {size: 9, activation: Cell.LINEAR},
-            {size: 35, activation: Cell.RELU},
-            {size: 15, activation: Cell.RELU},
+            {size: 8, activation: Cell.LINEAR},
+            {size: firstLayerCount, activation: Cell.RELU},
+            {size: secondLayerCount, activation: Cell.RELU},
             {size: 4, activation: Cell.LINEAR},
         ]);
 
-        this.perceptron.setDropoutRate(0.1);
+        this.perceptron.setDropoutRate(dropOutRate);
 
         this.syncTargetNetwork();
     }
@@ -48,7 +48,7 @@ class NeuralNetwork {
             // rocketState.thrust.x / 6.5,
             // rocketState.thrust.y / 6.5,
 
-            rocketState.done * 1,
+            // rocketState.done * 1,
             rocketState.timestep / 1200,
             // Math.abs(rocketState.position.x - rocketState.dronBoatPosition.x) / rocketState.screen.width
         ];
@@ -65,10 +65,8 @@ class NeuralNetwork {
         const qValues = this.perceptron.getOutputVector();
 
         let action;
-        // Выбор действия с максимальным Q-значением (эксплуатация)
         action = qValues.indexOf(Math.max(...qValues));
 
-        // Преобразуем индекс действия в команды
         return {
             thrust: action === 0,
             turnLeft: action === 1,
@@ -100,10 +98,10 @@ class NeuralNetwork {
 
             // Создание нового массива целевых Q-значений
             const targetQValues = [...qValues];
-            const maxQValue = 10; // Максимальное значение Q
-            const minQValue = -10; // Минимальное значение Q
+            const maxQValue = 10;
+            const minQValue = -10;
             targetQValues[action] = nextState.isDestroyed
-                ? reward
+                ? 0
                 : Math.min(Math.max(reward + gamma * maxNextQ, minQValue), maxQValue);
 
             // Логирование значений
@@ -116,11 +114,9 @@ class NeuralNetwork {
             this.perceptron.backPropagation();
             this.networkError += this.perceptron.getNetError();
 
-            // Увеличиваем счётчик шагов
             stepCounter++;
 
-            // Периодическая синхронизация целевой сети
-            if (stepCounter % 5 === 0) {
+            if (stepCounter % 150 === 0) {
                 this.syncTargetNetwork();
             }
         });

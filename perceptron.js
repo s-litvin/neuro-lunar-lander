@@ -318,7 +318,7 @@ class Perceptron
 
 				this.updateNeuron(neuron.id, neuron);
 
-				// Sum total error
+				// Sum total error (MSE)
 				if (li === this.layers.length - 1) {
 					this.totalError += 0.5 * Math.pow(neuron.cell.getTargetOutput() - neuron.cell.getOutput(), 2);
 				}
