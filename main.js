@@ -117,6 +117,10 @@ function draw() {
             controlMode = MODE_AI;
         }
 
+        if (controlMode !== MODE_AI && agentNumber === 0) {
+            currentExplorationActions[0].values = neuralNetwork.getOutputCommands()['values'];
+        }
+
         qValues = currentExplorationActions[0].values || [0, 0, 0, 0];
 
         if (agentNumber === 0) {
@@ -432,7 +436,7 @@ function renderControlMode() {
 
 function renderAIControls() {
 
-    let qValues = neuralNetwork.getOutputCommands()['values'] || [0,0,0,0];
+    // let qValues = neuralNetwork.getOutputCommands()['values'] || [0,0,0,0];
 
     const maxQValue = Math.max(...qValues) + 2;
     const minQValue = Math.min(...qValues) - 2;
@@ -551,7 +555,7 @@ function initUI() {
 
     // Replay Buffer Size Slider
     let bufferLabel = createP(`Replay Buffer Size: ${maxBufferSize}`).position(posX, posY + 6 * lineHeight - 8);
-    bufferSlider = createSlider(500, 10000, maxBufferSize, 100);
+    bufferSlider = createSlider(500, 50000, maxBufferSize, 100);
     bufferSlider.style('width', '200px').position(posX, posY + 7 * lineHeight);
     bufferSlider.input(() => {
         maxBufferSize = bufferSlider.value();
@@ -564,7 +568,7 @@ function initUI() {
 
     // Batch Size Slider
     let batchLabel = createP(`Batch Size: ${batchSize}`).position(posX, posY + 8 * lineHeight - 8);
-    batchSlider = createSlider(100, 1000, batchSize, 50);
+    batchSlider = createSlider(100, 2000, batchSize, 50);
     batchSlider.style('width', '200px').position(posX, posY + 9 * lineHeight);
     batchSlider.input(() => {
         batchSize = batchSlider.value();
