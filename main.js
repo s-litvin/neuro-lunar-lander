@@ -89,7 +89,9 @@ function draw() {
         perceptron.forwardPass();
 
         if (enableGreed && explorationDuration > 0) {
-            explorationDuration--;
+            if (agentNumber === agentCount - 1) {
+                explorationDuration--;
+            }
             commands = currentExplorationActions[agentNumber];
             commands = heuristicPolicy(rocketState);
             controlMode = MODE_AGENT;
@@ -107,12 +109,16 @@ function draw() {
             controlMode = MODE_AGENT;
         } else {
             if (aiControllDuration > 0) {
-                aiControllDuration--;
+                if (agentNumber === agentCount - 1) {
+                    console.log('114');
+                    aiControllDuration--;
+                }
             } else {
-                currentExplorationActions[agentNumber] = neuralNetwork.getOutputCommands();
                 // aiControllDuration = Math.floor(Math.random() * maxExplorationDuration * 1.5) + maxExplorationDuration / 2;
                 aiControllDuration = Math.floor(maxExplorationDuration / 3);
             }
+
+            currentExplorationActions[agentNumber] = neuralNetwork.getOutputCommands();
             commands = currentExplorationActions[agentNumber];
             controlMode = MODE_AI;
         }
@@ -535,12 +541,12 @@ function initUI() {
     });
 
     // Gamma Slider
-    let gammaLabel = createP(`Gamma (discount): ${gamma.toFixed(2)}`).position(posX, posY + 2 * lineHeight - 8);
+    let gammaLabel = createP(`𝛾 (discount): ${gamma.toFixed(2)}`).position(posX, posY + 2 * lineHeight - 8);
     gammaSlider = createSlider(0.01, 0.99, gamma, 0.01);
     gammaSlider.style('width', '200px').position(posX, posY + 3 * lineHeight);
     gammaSlider.input(() => {
         gamma = gammaSlider.value();
-        gammaLabel.html(`Gamma (discount): ${gamma.toFixed(2)}`);
+        gammaLabel.html(`𝛾 (discount): ${gamma.toFixed(2)}`);
     });
 
     // Epsilon Slider
