@@ -1,5 +1,5 @@
 let environment;
-let agentCount = 4;
+let agentCount = 7;
 
 let actionThrust = 0;
 let actionTurnLeft = 0;
@@ -581,47 +581,57 @@ function initUI() {
     });
 
     // NN layers Slider
-    let firstLayerCountLabel = createP(`First layer neurons number: ${firstLayerCount}`).position(posX, posY + 12 * lineHeight - 8);
+    let firstLayerCountLabel = createP(`I layer neurons number: ${firstLayerCount}`).position(posX, posY + 12 * lineHeight - 8);
     firstLayerCountSlider = createSlider(1, 200, firstLayerCount, 1);
     firstLayerCountSlider.style('width', '200px').position(posX, posY + 13 * lineHeight);
     firstLayerCountSlider.input(() => {
         firstLayerCount = firstLayerCountSlider.value();
-        firstLayerCountLabel.html(`First layer neurons number: ${firstLayerCount}`);
+        firstLayerCountLabel.html(`I layer neurons number: ${firstLayerCount}`);
+        initNeuralNetwork();
     });
     
-    let secondLayerCountLabel = createP(`Second layer neurons number: ${secondLayerCount}`).position(posX, posY + 14 * lineHeight - 8);
+    let secondLayerCountLabel = createP(`II layer neurons number: ${secondLayerCount}`).position(posX, posY + 14 * lineHeight - 8);
     secondLayerCountSlider = createSlider(1, 200, secondLayerCount, 1);
     secondLayerCountSlider.style('width', '200px').position(posX, posY + 15 * lineHeight);
     secondLayerCountSlider.input(() => {
         secondLayerCount = secondLayerCountSlider.value();
-        secondLayerCountLabel.html(`Second layer neurons number: ${secondLayerCount}`);
+        secondLayerCountLabel.html(`II layer neurons number: ${secondLayerCount}`);
+    });
+
+    let agentsCountLabel = createP(`Agents count: ${agentCount}`).position(posX, posY + 16 * lineHeight - 8);
+    agentCountSlider = createSlider(1, 200, agentCount, 1);
+    agentCountSlider.style('width', '200px').position(posX, posY + 17 * lineHeight);
+    agentCountSlider.input(() => {
+        agentCount = agentCountSlider.value();
+        agentsCountLabel.html(`Agents count: ${agentCount}`);
+        initEnv();
     });
 
     // Checkboxes
-    greedCheckbox = createCheckbox("Enable Greedy Exploration", enableGreed).position(posX, posY + 17 * lineHeight);
+    greedCheckbox = createCheckbox("Enable Greedy Exploration", enableGreed).position(posX, posY + 19 * lineHeight);
     greedCheckbox.changed(() => {
         enableGreed = greedCheckbox.checked();
     });
 
-    trainingCheckbox = createCheckbox("Enable Training", enableTraining).position(posX, posY + 18 * lineHeight);
+    trainingCheckbox = createCheckbox("Enable Training", enableTraining).position(posX, posY + 20 * lineHeight);
     trainingCheckbox.changed(() => {
         enableTraining = trainingCheckbox.checked();
     });
 
-    resetCheckbox = createCheckbox("Enable Auto Reset", enableReset).position(posX, posY + 19 * lineHeight);
+    resetCheckbox = createCheckbox("Enable Auto Reset", enableReset).position(posX, posY + 21 * lineHeight);
     resetCheckbox.changed(() => {
         enableReset = resetCheckbox.checked();
     });
 
     // Pause Checkbox
-    pauseCheckbox = createCheckbox("Pause Simulation", pause).position(posX, posY + 20 * lineHeight);
+    pauseCheckbox = createCheckbox("Pause Simulation", pause).position(posX, posY + 22 * lineHeight);
     pauseCheckbox.changed(() => {
         togglePause();
     });
 
     // Reset Button
     let resetButton = createButton('Reset Simulation');
-    resetButton.position(posX, posY + 22 * lineHeight);
+    resetButton.position(posX, posY + 24 * lineHeight);
     resetButton.mousePressed(() => {
         resetSimulation();
     });

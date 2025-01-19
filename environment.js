@@ -311,7 +311,7 @@ class Environment {
             const angle = atan2(this.rockets[i].orientation.y, this.rockets[i].orientation.x);
             rotate(angle + HALF_PI);
 
-            if (this.isDestroyed) {
+            if (this.rockets[i].isDestroyed) {
                 fill(150, 0, 0);
             } else if (i === 0) {
                 fill(10, 180, 180);
@@ -333,7 +333,7 @@ class Environment {
             line(-this.rockets[i].radius / 4, this.rockets[i].radius / 3, -this.rockets[i].radius / 3, this.rockets[i].radius / 2);
             line(this.rockets[i].radius / 4, this.rockets[i].radius / 3, this.rockets[i].radius / 3, this.rockets[i].radius /2);
 
-            if (this.rockets[i].thrustEnabled) {
+            if (this.rockets[i].thrustEnabled && !this.rockets[i].isDestroyed) {
                 fill(255, 0, 90);
                 noStroke();
                 triangle(
