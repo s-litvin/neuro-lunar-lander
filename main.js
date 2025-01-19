@@ -1,4 +1,6 @@
 let environment;
+let agentCount = 4;
+
 let actionThrust = 0;
 let actionTurnLeft = 0;
 let actionTurnRight = 0;
@@ -18,7 +20,7 @@ let rewardBuffer = [];
 let averageReward = 0;
 let batchSize = 350;
 
-let currentExplorationAction = null;
+let currentExplorationActions = [];
 let explorationDuration = 0;
 let aiControllDuration = 0;
 let maxExplorationDuration = 100;
@@ -30,7 +32,7 @@ let rewardGraph = [];
 let lossGraph = [];
 let graphMaxPoints = 300;
 
-let lrSlider, explorationDurationSlider, gammaSlider, epsilonSlider, bufferSlider, batchSlider, dropOutRateSlider,
+let lrSlider, agentCountSlider, explorationDurationSlider, gammaSlider, epsilonSlider, bufferSlider, batchSlider, dropOutRateSlider,
     greedCheckbox, trainingCheckbox, resetCheckbox, learningRate = 0.0001, dropOutRate = 0.01, pauseCheckbox, epsilonLabel,
     firstLayerCountSlider, secondLayerCountSlider;
 
@@ -64,81 +66,98 @@ function setup()
     initUI()
 }
 
-function draw()
-{
-    let rocketState = environment.observe();
-
-    let commands;
-
+function draw() {
     if (pause) {
         noLoop();
     }
 
-    environment.observe();
-    neuralNetwork.setInput(rocketState);
-    perceptron.forwardPass();
-    perceptron.setLearningRate(learningRate);
+    let rocketsAlive = 0;
 
-    if (enableGreed && explorationDuration > 0) {
-        explorationDuration--;
-        commands = currentExplorationAction;
-        commands = heuristicPolicy(rocketState);
-        controlMode = MODE_AGENT;
-    } else if (enableGreed && Math.random() < epsilon && aiControllDuration === 0) {
-        let action = Math.floor(random(0, 4));
-        currentExplorationAction = {
-            thrust: action === 0,
-            turnLeft: action === 1,
-            turnRight: action === 2,
-            doNothing: action === 3,
-            index: action
-        };
-        explorationDuration = Math.floor(Math.random() * maxExplorationDuration) + 1;
-        commands = currentExplorationAction;
-        controlMode = MODE_AGENT;
-    } else {
-        if (aiControllDuration > 0) {
-            aiControllDuration--;
-        } else {
-            currentExplorationAction = neuralNetwork.getOutputCommands();
-            // aiControllDuration = Math.floor(Math.random() * maxExplorationDuration * 1.5) + maxExplorationDuration / 2;
-            aiControllDuration = Math.floor(maxExplorationDuration / 3);
+    for (let agentNumber = 0; agentNumber < agentCount; agentNumber++) {
+
+        let rocketState = environment.observe(agentNumber);
+        let commands;
+
+        if (rocketState.isDestroyed) {
+            continue;
         }
-        commands = currentExplorationAction;
-        controlMode = MODE_AI;
-    }
 
-    qValues = currentExplorationAction.values || [0, 0, 0, 0];
-    actionThrust = manualInput.thrust || commands.thrust;
-    actionTurnLeft = manualInput.left || commands.turnLeft;
-    actionTurnRight = manualInput.right || commands.turnRight;
+        rocketsAlive++;
 
-    background(120);
-    this.renderRewardZone();
-    environment.render(actionThrust, actionTurnLeft, actionTurnRight);
-    this.renderGraphs();
-    this.renderControlMode();
-    this.renderAIControls();
+        neuralNetwork.setInput(rocketState);
 
-    const nextState = environment.observe();
+        perceptron.forwardPass();
 
-    const reward = calculateReward(rocketState);
+        if (enableGreed && explorationDuration > 0) {
+            explorationDuration--;
+            commands = currentExplorationActions[agentNumber];
+            commands = heuristicPolicy(rocketState);
+            controlMode = MODE_AGENT;
+        } else if (enableGreed && Math.random() < epsilon && aiControllDuration === 0) {
+            let action = Math.floor(random(0, 4));
+            currentExplorationActions[agentNumber] = {
+                thrust: action === 0,
+                turnLeft: action === 1,
+                turnRight: action === 2,
+                doNothing: action === 3,
+                index: action
+            };
+            explorationDuration = Math.floor(Math.random() * maxExplorationDuration) + 1;
+            commands = currentExplorationActions[agentNumber];
+            controlMode = MODE_AGENT;
+        } else {
+            if (aiControllDuration > 0) {
+                aiControllDuration--;
+            } else {
+                currentExplorationActions[agentNumber] = neuralNetwork.getOutputCommands();
+                // aiControllDuration = Math.floor(Math.random() * maxExplorationDuration * 1.5) + maxExplorationDuration / 2;
+                aiControllDuration = Math.floor(maxExplorationDuration / 3);
+            }
+            commands = currentExplorationActions[agentNumber];
+            controlMode = MODE_AI;
+        }
 
-    experienceBuffer.push({
-        state: rocketState,
-        action: commands.index,
-        reward: reward,
-        nextState: nextState
-    });
+        qValues = currentExplorationActions[0].values || [0, 0, 0, 0];
 
-    if (experienceBuffer.length > maxBufferSize) {
-        experienceBuffer.shift();
+        if (agentNumber === 0) {
+            actionThrust = manualInput.thrust || commands.thrust;
+            actionTurnLeft = manualInput.left || commands.turnLeft;
+            actionTurnRight = manualInput.right || commands.turnRight;
+        } else {
+            actionThrust = commands.thrust;
+            actionTurnLeft = commands.turnLeft;
+            actionTurnRight = commands.turnRight;
+        }
+
+        environment.updateState(actionThrust, actionTurnLeft, actionTurnRight, agentNumber);
+
+        const nextState = environment.observe(agentNumber);
+        const reward = calculateReward(rocketState);
+
+        experienceBuffer.push({
+            state: rocketState,
+            action: commands.index,
+            reward: reward,
+            nextState: nextState
+        });
+
+        if (experienceBuffer.length > maxBufferSize) {
+            experienceBuffer.shift();
+        }
+
+        if (agentNumber === 0) {
+            rewardBuffer.push(reward);
+            if (rewardBuffer.length > batchSize) {
+                rewardBuffer.shift();
+            }
+        }
     }
 
     stepCount++;
     if (enableTraining && stepCount % (batchSize * 2) === 0 && experienceBuffer.length >= batchSize) {
         const batch = sampleBatch(experienceBuffer, batchSize);
         // console.log(`Step ${stepCount}: Training batch`, batch);
+        perceptron.setLearningRate(learningRate);
         neuralNetwork.trainFromBatch(batch, gamma); // gamma = 0.99
 
         // console.log(batch);
@@ -147,25 +166,26 @@ function draw()
         }
     }
 
-    rewardBuffer.push(reward);
-    if (rewardBuffer.length > batchSize) {
-        rewardBuffer.shift();
-    }
-
     averageReward = rewardBuffer.reduce((a, b) => a + b, 0) / rewardBuffer.length;
-    if (averageReward < -0.4 && epsilon < 0.29) {
+    if (averageReward < -0.4 && epsilon < 0.19) {
         epsilon = Math.min(1.0, epsilon + 0.01);
     }
+
+    background(120);
+    this.renderRewardZone();
+
+    environment.render();
+
+    this.renderGraphs();
+    this.renderControlMode();
+    this.renderAIControls();
 
 
     if (enableReset) {
         currentExplorationTime--;
 
-        if ((currentExplorationTime < 1 && aiControllDuration < 1) ||
-            rocketState.isDestroyed || rocketState.done ||
-            rocketState.timestep >= maxExplorationTime) {
-
-            environment.reset();
+        if ((currentExplorationTime < 1 && aiControllDuration < 1) || rocketsAlive === 0) {
+            environment.initRockets();
             console.log("Rocket restarted...");
             explorationDuration = 0;
             aiControllDuration = 0;
@@ -194,7 +214,7 @@ function draw()
 }
 
 function initEnv() {
-    environment = new Environment();
+    environment = new Environment(agentCount);
     environment.setup();
 }
 
@@ -435,7 +455,7 @@ function renderAIControls() {
         const barX = offsetX + i * (barWidth + 10);
         const barY = offsetY + graphHeight - normalizedHeight;
 
-        fill(i === currentExplorationAction.index && controlMode === MODE_AI ? 'rgba(0, 0, 255, 0.6)' : 'rgba(128, 128, 128, 0.6)');
+        fill(i === currentExplorationActions[0].index && controlMode === MODE_AI ? 'rgba(0, 0, 255, 0.6)' : 'rgba(128, 128, 128, 0.6)');
         noStroke();
         rect(barX, barY, barWidth, normalizedHeight);
 

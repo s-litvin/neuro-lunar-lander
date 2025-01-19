@@ -116,7 +116,7 @@ class NeuralNetwork {
 
             stepCounter++;
 
-            if (stepCounter % 150 === 0) {
+            if (Math.min(stepCounter % 250, batch.length) === 0) {
                 this.syncTargetNetwork();
             }
         });
