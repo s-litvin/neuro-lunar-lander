@@ -18,16 +18,13 @@ class Rocket {
     timestep = 1;
 
     constructor(screenWidth, screenHeight) {
-        this.position = createVector(screenWidth / 4 - this.radius / 2, screenHeight - this.radius);
+        this.position = createVector(Math.floor(random(50, screenWidth - 50)), Math.floor(random(screenHeight * 0.2, screenHeight * 0.5)));
         this.thrust = createVector(0, 0);
         this.gravity = createVector(0, 0.04);
         this.acceleration = createVector(0, 0);
-        this.velocity = createVector(0, 0);
+        this.velocity = createVector(random(-1, 1), random(-1, 0));
         this.orientation = createVector(0, -1);
-        this.tmpVector = createVector(0, 0);
-        // this.dronBoat = createVector(this.width / 2, this.height - this.dronBoatHeight); // Зона посадки
-        // this.dVel = createVector(0, 0);
-        // this.dAcc = createVector(0.01, 0);
+        this.tmpVector = createVector(random(-0.1, 0.1), -1);
         this.isDestroyed = false;
         this.timestep = 0;
     }
@@ -44,7 +41,6 @@ class Rocket {
             acceleration: {x: this.acceleration.x, y: this.acceleration.y},
             touchDown: this.touchDown,
             touchDownZone: this.touchDownZone,
-            // dronBoatPosition: { x: this.dronBoat.x, y: this.dronBoat.y },
             thrust: {x: this.thrust.x, y: this.thrust.y},
             isDestroyed: this.isDestroyed,
             done: this.done,
@@ -53,13 +49,19 @@ class Rocket {
     }
 
     updateState(thrust=false, turnLeft=false, turnRight=false) {
+
         this.resetAcceleration();
+
+        if (this.isDestroyed) {
+            this.done = true;
+            return;
+        }
 
         this.applyAction(thrust, turnLeft, turnRight);
         this.handleTimer();
 
         if (!this.isDestroyed && !this.done) {
-            this.applyEnvironmentalForces()
+            this.applyEnvironmentalForces();
             this.timestep++;
         }
 
@@ -81,7 +83,7 @@ class Rocket {
         const ROTATION_ANGLE = 1;
         const THRUST_FORCE = 6.5;
 
-        if (this.isDestroyed) {
+        if (this.isDestroyed || this.done) {
             return;
         }
 
@@ -133,9 +135,9 @@ class Rocket {
         this.applyForce(dragForce);
     }
 
-    reactToLanding(landingThreshold) {
-        this.position.y = landingThreshold;
+    reactToLanding() {
 
+        // this.position.y = landingThreshold;
         const orientationVector = createVector(this.orientation.x, this.orientation.y);
         const verticalVector = createVector(0, -1);
         const angle = degrees(orientationVector.angleBetween(verticalVector));
@@ -146,10 +148,19 @@ class Rocket {
             this.velocity.set(0, 0);
             this.acceleration.set(0, 0);
             this.thrust.set(0, 0);
+            this.done = true;
+
             console.log("Rocket destroyed!");
         } else {
             this.velocity.y = 0;
             this.velocity.x *= 0.96; // drag
+
+            this.thrust.set(0, 0);
+            this.velocity.set(0, 0);
+            this.acceleration.set(0, 0);
+            this.done = true;
+
+            console.log("Rocket landed in " + this.touchDownZone + " zone");
         }
     }
 
@@ -196,6 +207,7 @@ class Rocket {
     handleTimer() {
         if (this.timestep >= 1200) {
             this.isDestroyed = true;
+            this.done = true;
         }
     }
 }

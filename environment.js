@@ -5,6 +5,9 @@ class Environment {
     width = 840;
     height = 480;
 
+    landingZoneX = targetPosition.x;
+    landingZoneWidth = 120;
+
     // dronBoatHeight = 20;
     // dronBoatVelocity = 0.01;
 
@@ -55,24 +58,11 @@ class Environment {
     }
 
     updateState(thrust=false, turnLeft=false, turnRight=false, agentNumber=0) {
-        ////////////// UPDATE STATE
         this.rockets[agentNumber].updateState(thrust, turnLeft, turnRight);
         this.handleCollisions(agentNumber);
     }
 
     render() {
-        // frameRate(this.slider.value());
-
-        // if (!this.rockets[agentNumber].isDestroyed && !this.rockets[agentNumber].done) {
-        //     this.checkLanding(agentNumber);
-        //     this.applyEnvironmentalForces(agentNumber)
-        //     this.rockets[agentNumber].timestep++;
-        // }
-        //
-        // this.stepPhysics(agentNumber);
-
-        ///////////// VISUALISATIONS //////////////
-
         this.drawStartPlatform();
         this.drawLandingPlatform();
         this.drawObstacles();
@@ -82,13 +72,11 @@ class Environment {
     }
 
     handleCollisions(agentNumber = 0) {
-        const rocket = this.rockets[agentNumber];
-        const landingThreshold = this.height - rocket.radius;
+        let rocket = this.rockets[agentNumber];
+
 
         // landing detection
-        if (rocket.position.y + rocket.velocity.y >= landingThreshold) {
-            rocket.reactToLanding(landingThreshold);
-        }
+        this.checkLandingZone(agentNumber);
 
         // collision detection
         for (const obstacle of this.obstacles) {
@@ -103,12 +91,12 @@ class Environment {
                 rocket.position.y + rocket.radius > obstacleTop &&
                 rocket.position.y - rocket.radius < obstacleBottom
             ) {
-                rocket.reactToObstacleCollision();
+                this.rockets[agentNumber].reactToObstacleCollision();
             }
         }
 
         // edges detection
-        rocket.handleBoundaryCollisions(this.width, this.height);
+        this.rockets[agentNumber].handleBoundaryCollisions(this.width, this.height);
     }
 
 
@@ -184,7 +172,7 @@ class Environment {
     drawLandingPlatform() {
         const platformWidth = this.rockets[0].radius * 3;
         const platformHeight = 10;
-        const platformX = (this.width * 3) / 4 - platformWidth / 2;
+        const platformX = targetPosition.x - platformWidth / 2;
         const platformY = this.height - platformHeight;
 
         // Platform
@@ -215,68 +203,36 @@ class Environment {
         }
     }
 
-    // updateDronBoat() {
-    //     const MAX_SPEED = 0.1;
-    //     const MOVEMENT_RANGE = 3 * this.dronBoatHeight;
-    //
-    //     // Update this.rockets[i].acceleration and this.rockets[i].velocity
-    //     this.dAcc.x += this.dronBoatVelocity;
-    //     this.dVel.add(this.dAcc);
-    //     this.dVel.limit(MAX_SPEED);
-    //
-    //     // Reverse direction at edges
-    //     if (this.dronBoat.x > this.width / 2 + MOVEMENT_RANGE || this.dronBoat.x < this.width / 2 - MOVEMENT_RANGE) {
-    //         this.dVel.mult(-1);
-    //         this.dronBoatVelocity *= -1;
-    //     }
-    //
-    //     // Update position
-    //     this.dronBoat.add(this.dVel);
-    //
-    //     // Reset this.rockets[i].acceleration
-    //     this.dAcc.mult(0);
-    // }
-
-    // applyTouchDown() {
-    //     this.touchDown =
-    //         (this.v1.y + this.rockets[i].velocity.y) >= (this.height - this.rockets[i].radius - this.dronBoatHeight - 2) &&
-    //         (this.v1.y + this.rockets[i].velocity.y) <= (this.height - this.rockets[i].radius - this.dronBoatHeight) &&
-    //         (this.v1.x + this.rockets[i].velocity.x >= this.dronBoat.x - this.rockets[i].radius / 2) &&
-    //         ((this.v1.x + this.rockets[i].velocity.x + this.rockets[i].radius) <= (this.dronBoat.x + this.dronBoatHeight * 3 * 1.5));
-    //
-    //     if (this.touchDown && this.thrust.x === 0) {
-    //         this.rockets[i].velocity.x = this.dronBoatVelocity;
-    //     }
-    // }
-
-    checkLanding(agentNumber) {
-        return;
+    checkLandingZone(agentNumber) {
         const landingThreshold = this.height - this.rockets[agentNumber].radius;
 
         // zones coordinates
-        const landingZoneX = this.width * 0.7;
-        const landingZoneWidth = 120;
+        const landingZoneX = this.landingZoneX;
+        const landingZoneWidth = this.landingZoneWidth;
         const startZoneX = this.width * 0.2;
         const startZoneWidth = 100;
 
-        this.touchDown =
-            (this.rockets[agentNumber].position.y + this.rockets[agentNumber].velocity.y) >= landingThreshold - 2 &&
-            (this.rockets[agentNumber].position.y + this.rockets[agentNumber].velocity.y) <= landingThreshold;
+        this.rockets[agentNumber].touchDown =
+            (this.rockets[agentNumber].position.y + this.rockets[agentNumber].velocity.y) >= landingThreshold;
 
-        if (this.touchDown) {
+        if (this.rockets[agentNumber].touchDown) {
             if (
                 this.rockets[agentNumber].position.x >= startZoneX - startZoneWidth / 2 &&
                 this.rockets[agentNumber].position.x <= startZoneX + startZoneWidth / 2
             ) {
                 this.rockets[agentNumber].touchDownZone = "start";
+
             } else if (
                 this.rockets[agentNumber].position.x >= landingZoneX - landingZoneWidth / 2 &&
                 this.rockets[agentNumber].position.x <= landingZoneX + landingZoneWidth / 2
             ) {
                 this.rockets[agentNumber].touchDownZone = "landing";
+
             } else {
                 this.rockets[agentNumber].touchDownZone = "random";
             }
+
+            this.rockets[agentNumber].reactToLanding();
         } else {
             this.rockets[agentNumber].touchDownZone = null;
         }
@@ -333,7 +289,7 @@ class Environment {
             line(-this.rockets[i].radius / 4, this.rockets[i].radius / 3, -this.rockets[i].radius / 3, this.rockets[i].radius / 2);
             line(this.rockets[i].radius / 4, this.rockets[i].radius / 3, this.rockets[i].radius / 3, this.rockets[i].radius /2);
 
-            if (this.rockets[i].thrustEnabled && !this.rockets[i].isDestroyed) {
+            if (this.rockets[i].thrustEnabled && !this.rockets[i].isDestroyed && !this.rockets[i].done) {
                 fill(255, 0, 90);
                 noStroke();
                 triangle(

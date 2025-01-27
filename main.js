@@ -10,7 +10,7 @@ let perceptron;
 let stepCount = 0;
 
 let experienceBuffer = [];
-let maxBufferSize = 5000;
+let maxBufferSize = 25000;
 
 let epsilon = 1.0;
 let epsilonDecay = 0.005
@@ -44,7 +44,9 @@ let enableGreed = true;
 let enableReset = true;
 let pause = false;
 
-let gamma = 0.5;
+let gamma = 0.999;
+
+let targetPosition = {x: 0, y: 0};
 
 const MODE_AI = 'ai';
 const MODE_AGENT = 'robot';
@@ -78,7 +80,7 @@ function draw() {
         let rocketState = environment.observe(agentNumber);
         let commands;
 
-        if (rocketState.isDestroyed) {
+        if (rocketState.isDestroyed || rocketState.done) {
             continue;
         }
 
@@ -110,7 +112,6 @@ function draw() {
         } else {
             if (aiControllDuration > 0) {
                 if (agentNumber === agentCount - 1) {
-                    console.log('114');
                     aiControllDuration--;
                 }
             } else {
@@ -142,7 +143,8 @@ function draw() {
         environment.updateState(actionThrust, actionTurnLeft, actionTurnRight, agentNumber);
 
         const nextState = environment.observe(agentNumber);
-        const reward = calculateReward(rocketState);
+
+        const reward = calculateReward(rocketState, nextState);
 
         experienceBuffer.push({
             state: rocketState,
@@ -200,6 +202,11 @@ function draw() {
             explorationDuration = 0;
             aiControllDuration = 0;
             currentExplorationTime = maxExplorationTime;
+
+            // targetPosition = {
+            //     x: Math.floor(random(50, environment.width - 50)),
+            //     y: Math.floor(random(50, environment.height - 20))
+            // };
         }
     }
 
@@ -219,13 +226,15 @@ function draw() {
     pause = pauseCheckbox.checked();
     if (epsilonSlider.value() !== epsilon) {
         epsilonSlider.value(epsilon);
-        epsilonLabel.html(`Epsilon: ${epsilon.toFixed(2)}`);
+        epsilonLabel.html(`ε: ${epsilon.toFixed(2)}`);
     }
 }
 
 function initEnv() {
     environment = new Environment(agentCount);
     environment.setup();
+
+    targetPosition = {x:environment.width / 2, y:environment.height}
 }
 
 function initNeuralNetwork() {
@@ -235,45 +244,38 @@ function initNeuralNetwork() {
     perceptron = neuralNetwork.getPerceptron();
 }
 
-function calculateReward(state) {
+function calculateReward(state, nextState) {
     let reward = 0;
 
-    // Штраф за разрушение
-    if (state.isDestroyed) {
-        return -1; // Максимальный штраф
+    if (nextState.isDestroyed) {
+        return -1;
     }
 
-    if (state.touchDown === true) {
-        // Проверка нахождения в стартовой зоне
-        if (state.touchDownZone === 'start') {
-            return -0.5; // Штраф за приземление в стартовой зоне
-        } else if (state.touchDownZone === 'landing') {
-            return 1; // Максимальная награда за посадку в зоне
+    if (nextState.touchDown === true) {
+        if (nextState.touchDownZone === 'landing') {
+            return 1;
         } else {
-            // reward += 500; // Награда за посадку вне стартовой зоны, но не в зоне посадки
+            reward += 400;
         }
     }
 
-    // Поощрение за нахождение в центре экрана
-    const centerX = state.screen.width / 2;
-    const centerY = state.screen.height / 2;
-    const distanceFromCenter = dist(state.position.x, state.position.y, centerX, centerY);
+    const distanceToTarget = dist(state.position.x, state.position.y, targetPosition.x, targetPosition.y);
 
     // Чем ближе к центру, тем выше награда, и наоборот
-    const maxDistance = dist(0, 0, centerX, centerY); // Максимальное расстояние от центра
-    const centerReward = map(distanceFromCenter, 0, maxDistance, 800, -800); // Штраф/поощрение
-    reward += centerReward;
+    const maxDistance = dist(0, 0, environment.width, environment.height);
+    const targetReward = map(distanceToTarget, 0, maxDistance, 10, -10);
+    reward += targetReward;
 
     if (state.position.y <= 10) {
         return -1;
     }
 
     // Штраф за отклонение ориентации от вертикали
-    // const orientationVector = createVector(state.orientation.x, state.orientation.y);
-    // const verticalVector = createVector(0, -1);
-    // const angle = degrees(orientationVector.angleBetween(verticalVector));
-    // const orientationPenalty = map(abs(angle), 0, 180, 0, 100); // Чем больше угол, тем сильнее штраф
-    // reward -= orientationPenalty;
+    const orientationVector = createVector(state.orientation.x, state.orientation.y);
+    const verticalVector = createVector(0, -1);
+    const angle = degrees(orientationVector.angleBetween(verticalVector));
+    const orientationPenalty = map(abs(angle), 0, 180, 0, 100); // Чем больше угол, тем сильнее штраф
+    reward -= orientationPenalty;
 
     // Штраф за высокую горизонтальную скорость
     const horizontalSpeed = abs(state.velocity.x);
@@ -281,12 +283,11 @@ function calculateReward(state) {
     reward -= speedPenalty;
 
     // Бонус за стабильную скорость
-    // const verticalSpeed = abs(state.velocity.y);
-    // const stableSpeedBonus = map(verticalSpeed, 0, 2, 150, 0); // Чем ближе к 0, тем больше бонус
-    // reward += stableSpeedBonus;
+    const verticalSpeed = abs(state.velocity.y);
+    const stableSpeedBonus = map(verticalSpeed, 0, 2, 150, 0); // Чем ближе к 0, тем больше бонус
+    reward += stableSpeedBonus;
 
-    // Бонус за время жизни
-    reward += state.timestep * 2;
+    reward -= state.timestep / 2;
 
     // Ограничение награды в диапазоне [-1, 1]
     const maxReward = 1000;
@@ -411,24 +412,14 @@ function renderGraphs() {
     text("Network error", offsetX + 5, offsetY + 30);
 
     fill(0);
-    text("Epoch:" + neuralNetwork.epoch + "     Epsilon greedy: " + epsilon.toFixed(3) + "   Reward avg:" + averageReward.toFixed(3), offsetX + 5, offsetY - 35);
+    text("Epoch:" + neuralNetwork.epoch + "     ε-greedy: " + epsilon.toFixed(3) + "   Reward avg:" + averageReward.toFixed(3), offsetX + 5, offsetY - 35);
     text("Replay buffer:" + experienceBuffer.length, offsetX + 5, offsetY - 22);
 }
 
 function renderRewardZone() {
-    const centerX = width / 2;
-    const centerY = height / 2;
-    const maxRadius = Math.min(width, height) / 2;
-
-    noFill();
-    for (let r = maxRadius; r > 0; r -= 10) {
-        const alpha = map(r, 0, maxRadius, 255, 0);
-        const colorValue = map(r, 0, maxRadius, 0, 255);
-
-        stroke(colorValue, 255 - colorValue, 0, alpha);
-        strokeWeight(2);
-        ellipse(centerX, centerY, r * 2);
-    }
+    noStroke();
+    fill(255, 100, 0);
+    ellipse(targetPosition.x, targetPosition.y, 20, 20);
 }
 
 
@@ -494,18 +485,29 @@ function togglePause() {
 function heuristicPolicy(state) {
     const { position, velocity, orientation } = state;
 
-    const centerX = environment.width / 2;
+    let targetX = targetPosition.x;
+    let targetY = targetPosition.y;
 
     let thrust = false;
     let turnLeft = false;
     let turnRight = false;
 
-    // Ускорение вверх, если ракета слишком низко или скорость мала
-    if (position.y > environment.height * 0.6 || velocity.y > 1) {
+    if (position.y > targetY || velocity.y > 1) {
         thrust = random(0, 100) < 80;
+    } else {
+        thrust = random(0, 100) > 80;
     }
 
-    // Поворот влево/вправо для стабилизации
+    if (thrust) {
+        return {
+            thrust: thrust,
+            turnLeft: false,
+            turnRight: false,
+            doNothing: false,
+            index: 0
+        }
+    }
+
     if (state.timestep % 10 < random(2, 9)) {
         if (orientation.x > 0.12) {
             turnLeft = random(0, 100) < 70;
@@ -513,15 +515,38 @@ function heuristicPolicy(state) {
             turnRight = random(0, 100) < 70;
         }
     } else {
-        // Ориентирование на центр
-        if (position.x < centerX - 20) {
+        if (position.x < targetX - 20) {
             turnRight = random(0, 100) < 70;
-        } else if (position.x > centerX + 20) {
+        } else if (position.x > targetX + 20) {
             turnLeft = random(0, 100) < 70;
         }
     }
 
-    return { thrust, turnLeft, turnRight };
+    if (turnLeft) {
+        return {
+            thrust: false,
+            turnLeft: true,
+            turnRight: false,
+            doNothing: false,
+            index: 1
+        }
+    } else if (turnRight) {
+        return {
+            thrust: false,
+            turnLeft: false,
+            turnRight: true,
+            doNothing: false,
+            index: 2
+        }
+    }
+
+    return {
+        thrust: false,
+        turnLeft: false,
+        turnRight: false,
+        doNothing: true,
+        index: 3
+    };
 }
 
 
@@ -541,8 +566,8 @@ function initUI() {
     });
 
     // Gamma Slider
-    let gammaLabel = createP(`𝛾 (discount): ${gamma.toFixed(2)}`).position(posX, posY + 2 * lineHeight - 8);
-    gammaSlider = createSlider(0.01, 0.99, gamma, 0.01);
+    let gammaLabel = createP(`𝛾 (discount): ${gamma.toFixed(3)}`).position(posX, posY + 2 * lineHeight - 8);
+    gammaSlider = createSlider(0.01, 0.999, gamma, 0.001);
     gammaSlider.style('width', '200px').position(posX, posY + 3 * lineHeight);
     gammaSlider.input(() => {
         gamma = gammaSlider.value();
@@ -551,12 +576,12 @@ function initUI() {
 
     // Epsilon Slider
 
-    epsilonLabel = createP(`Epsilon: ${epsilon.toFixed(2)}`).position(posX, posY + 4 * lineHeight - 8);
+    epsilonLabel = createP(`ε: ${epsilon.toFixed(2)}`).position(posX, posY + 4 * lineHeight - 8);
     epsilonSlider = createSlider(0.0, 1.0, epsilon, 0.01);
     epsilonSlider.style('width', '200px').position(posX, posY + 5 * lineHeight);
     epsilonSlider.input(() => {
         epsilon = epsilonSlider.value();
-        epsilonLabel.html(`Epsilon: ${epsilon.toFixed(2)}`);
+        epsilonLabel.html(`ε: ${epsilon.toFixed(2)}`);
     });
 
     // Replay Buffer Size Slider
