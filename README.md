@@ -114,4 +114,6 @@ Try it here: https://s-litvin.github.io/neuro-lunar-lander/
 
 ![](https://raw.githubusercontent.com/s-litvin/neuro-lunar-lander/master/preview.png)
 
-![](https://raw.githubusercontent.com/s-litvin/neuro-lunar-lander/master/preview.mp4)
+https://github.com/user-attachments/assets/14d4f76b-29d6-44bb-a059-a3c490c75f19
+
+
