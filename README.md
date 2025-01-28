@@ -1,4 +1,4 @@
-# Lunar Lander AI Simulation
+# Lunar Lander DQN
 
 ## Overview
 
