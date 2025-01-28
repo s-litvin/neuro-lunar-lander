@@ -107,3 +107,11 @@ This project draws inspiration from the following open-source projects:
     - Provided the neural network framework for building and training models.
 
 Both components can function independently and are integrated here to showcase their combined potential.
+
+### Demo 
+
+Try it here: https://s-litvin.github.io/neuro-lunar-lander/
+
+![](https://raw.githubusercontent.com/s-litvin/neuro-lunar-lander/master/preview.png)
+
+![](https://raw.githubusercontent.com/s-litvin/neuro-lunar-lander/master/preview.mp4)
