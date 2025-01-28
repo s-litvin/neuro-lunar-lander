@@ -1,5 +1,5 @@
 let environment;
-let agentCount = 7;
+let agentCount = 15;
 
 let actionThrust = 0;
 let actionTurnLeft = 0;
@@ -10,10 +10,10 @@ let perceptron;
 let stepCount = 0;
 
 let experienceBuffer = [];
-let maxBufferSize = 25000;
+let maxBufferSize = 50000;
 
 let epsilon = 1.0;
-let epsilonDecay = 0.005
+let epsilonDecay = 0.02
 let minEpsilon = 0.05;
 
 let rewardBuffer = [];
@@ -33,11 +33,11 @@ let lossGraph = [];
 let graphMaxPoints = 300;
 
 let lrSlider, agentCountSlider, explorationDurationSlider, gammaSlider, epsilonSlider, bufferSlider, batchSlider, dropOutRateSlider,
-    greedCheckbox, trainingCheckbox, resetCheckbox, learningRate = 0.0001, dropOutRate = 0.01, pauseCheckbox, epsilonLabel,
+    greedCheckbox, trainingCheckbox, resetCheckbox, learningRate = 0.0001, dropOutRate = 0.2, pauseCheckbox, epsilonLabel,
     firstLayerCountSlider, secondLayerCountSlider;
 
-let firstLayerCount = 20;
-let secondLayerCount = 10;
+let firstLayerCount = 64;
+let secondLayerCount = 28;
 
 let enableTraining = true;
 let enableGreed = true;
@@ -111,7 +111,7 @@ function draw() {
             controlMode = MODE_AGENT;
         } else {
             if (aiControllDuration > 0) {
-                if (agentNumber === agentCount - 1) {
+                if (agentNumber === (agentCount - 1)) {
                     aiControllDuration--;
                 }
             } else {

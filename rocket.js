@@ -18,7 +18,7 @@ class Rocket {
     timestep = 1;
 
     constructor(screenWidth, screenHeight) {
-        this.position = createVector(Math.floor(random(50, screenWidth - 50)), Math.floor(random(screenHeight * 0.2, screenHeight * 0.5)));
+        this.position = createVector(Math.floor(random(10, screenWidth - 10)), Math.floor(random(10, screenHeight - 10)));
         this.thrust = createVector(0, 0);
         this.gravity = createVector(0, 0.04);
         this.acceleration = createVector(0, 0);
