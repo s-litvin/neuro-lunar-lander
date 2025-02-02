@@ -28,7 +28,7 @@ class Environment {
         this.rockets = [];
 
         for (let i = 0; i < this.agentsNumber; i++) {
-            this.rockets.push(new Rocket(this.width, this.height));
+            this.rockets.push(new Rocket(this.width, this.height, i));
         }
     }
 

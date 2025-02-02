@@ -1,5 +1,6 @@
 class Rocket {
 
+    id;
     position;
     mass = 100;
     cfr = 0.01;
@@ -17,7 +18,7 @@ class Rocket {
     radius = 60;
     timestep = 1;
 
-    constructor(screenWidth, screenHeight) {
+    constructor(screenWidth, screenHeight, rocketID) {
         this.position = createVector(Math.floor(random(10, screenWidth - 10)), Math.floor(random(10, screenHeight - 10)));
         this.thrust = createVector(0, 0);
         this.gravity = createVector(0, 0.04);
@@ -27,6 +28,7 @@ class Rocket {
         this.tmpVector = createVector(random(-0.1, 0.1), -1);
         this.isDestroyed = false;
         this.timestep = 0;
+        this.id = rocketID;
     }
 
     state() {
@@ -44,7 +46,8 @@ class Rocket {
             thrust: {x: this.thrust.x, y: this.thrust.y},
             isDestroyed: this.isDestroyed,
             done: this.done,
-            timestep: this.timestep
+            timestep: this.timestep,
+            id: this.id
         };
     }
 

@@ -483,7 +483,7 @@ function togglePause() {
 }
 
 function heuristicPolicy(state) {
-    const { position, velocity, orientation } = state;
+    const { position, velocity, orientation, id } = state;
 
     let targetX = targetPosition.x;
     let targetY = targetPosition.y;
@@ -492,10 +492,37 @@ function heuristicPolicy(state) {
     let turnLeft = false;
     let turnRight = false;
 
+    const behaviorType = id % 4;
+
+    let thrustProbability, turnProbability, randomFactor;
+
+    switch (behaviorType) {
+        case 0: // agressive
+            thrustProbability = 95;
+            turnProbability = 95;
+            randomFactor = 5; // minimal randomness
+            break;
+        case 1: // quiet
+            thrustProbability = 50;
+            turnProbability = 40;
+            randomFactor = 10; // small randomness
+            break;
+        case 2: // chaotical
+            thrustProbability = random(40, 95);
+            turnProbability = random(30, 95);
+            randomFactor = 40; // maximum randomness
+            break;
+        case 3: // balanced
+            thrustProbability = 75;
+            turnProbability = 70;
+            randomFactor = 15; // average randomness
+            break;
+    }
+
     if (position.y > targetY || velocity.y > 1) {
-        thrust = random(0, 100) < 80;
+        thrust = random(0, 100) < thrustProbability;
     } else {
-        thrust = random(0, 100) > 80;
+        thrust = random(0, 100) > thrustProbability;
     }
 
     if (thrust) {
@@ -505,20 +532,20 @@ function heuristicPolicy(state) {
             turnRight: false,
             doNothing: false,
             index: 0
-        }
+        };
     }
 
-    if (state.timestep % 10 < random(2, 9)) {
+    if (state.timestep % 10 < random(2, 9 + randomFactor)) {
         if (orientation.x > 0.12) {
-            turnLeft = random(0, 100) < 70;
+            turnLeft = random(0, 100) < turnProbability;
         } else if (orientation.x < -0.12) {
-            turnRight = random(0, 100) < 70;
+            turnRight = random(0, 100) < turnProbability;
         }
     } else {
         if (position.x < targetX - 20) {
-            turnRight = random(0, 100) < 70;
+            turnRight = random(0, 100) < turnProbability;
         } else if (position.x > targetX + 20) {
-            turnLeft = random(0, 100) < 70;
+            turnLeft = random(0, 100) < turnProbability;
         }
     }
 
@@ -529,7 +556,7 @@ function heuristicPolicy(state) {
             turnRight: false,
             doNothing: false,
             index: 1
-        }
+        };
     } else if (turnRight) {
         return {
             thrust: false,
@@ -537,7 +564,7 @@ function heuristicPolicy(state) {
             turnRight: true,
             doNothing: false,
             index: 2
-        }
+        };
     }
 
     return {
