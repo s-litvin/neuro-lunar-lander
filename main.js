@@ -34,7 +34,7 @@ let graphMaxPoints = 300;
 
 let lrSlider, agentCountSlider, explorationDurationSlider, gammaSlider, epsilonSlider, bufferSlider, batchSlider, dropOutRateSlider,
     greedCheckbox, trainingCheckbox, resetCheckbox, learningRate = 0.0001, dropOutRate = 0.2, pauseCheckbox, epsilonLabel,
-    firstLayerCountSlider, secondLayerCountSlider;
+    firstLayerCountSlider, secondLayerCountSlider, stateArea;
 
 let firstLayerCount = 64;
 let secondLayerCount = 28;
@@ -171,6 +171,10 @@ function draw() {
         // console.log(`Step ${stepCount}: Training batch`, batch);
         perceptron.setLearningRate(learningRate);
         neuralNetwork.trainFromBatch(batch, gamma); // gamma = 0.99
+
+        const json = NetworkManager.freeze(perceptron);
+        const jsonPretty = JSON.stringify(JSON.parse(json), null, 2);
+        stateArea.value(jsonPretty);
 
         // console.log(batch);
         if (epsilon > minEpsilon) {
@@ -696,6 +700,44 @@ function initUI() {
     resetButton.position(posX, posY + 24 * lineHeight);
     resetButton.mousePressed(() => {
         resetSimulation();
+    });
+
+    stateArea = createElement('textarea');
+    stateArea.position(posX, posY + 26 * lineHeight);
+    stateArea.size(300, 100);
+
+    let saveButton = createButton('Get state');
+    saveButton.position(posX, posY + 32 * lineHeight);
+    saveButton.mousePressed(() => {
+        const json = NetworkManager.freeze(perceptron);
+        const jsonPretty = JSON.stringify(JSON.parse(json), null, 2);
+        stateArea.value(jsonPretty);
+    });
+
+    let loadButton = createButton('Load state');
+    loadButton.position(posX + 80, posY + 32 * lineHeight);
+    loadButton.mousePressed(async () => {
+        const json = stateArea.value();
+        if (json) {
+            const loadedPerceptron = NetworkManager.revive(json);
+            if (loadedPerceptron) {
+                neuralNetwork.setPerceptron(loadedPerceptron);
+                perceptron = neuralNetwork.getPerceptron();
+                console.log("State loaded");
+            } else {
+                console.log("Error loading state");
+            }
+        } else {
+            console.log("Textarea is empty");
+        }
+    });
+
+    let copyButton = createButton('Copy state');
+    copyButton.position(posX + 180, posY + 32 * lineHeight);
+    copyButton.mousePressed(() => {
+        stateArea.elt.select();
+        document.execCommand('copy');
+        console.log("Copied to clipboard");
     });
 }
 

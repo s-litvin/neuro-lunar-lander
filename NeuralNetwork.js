@@ -57,6 +57,10 @@ class NeuralNetwork {
         this.targetNeuralNetwork.setInputVector(inputs);
     }
 
+    setPerceptron(perceptron) {
+        this.perceptron = perceptron;
+    }
+
     getPerceptron() {
         return this.perceptron;
     }
@@ -78,25 +82,25 @@ class NeuralNetwork {
     }
 
     trainFromBatch(batch, gamma) {
-        let stepCounter = 0; // Счётчик шагов
+        let stepCounter = 0;
         this.networkError = 0;
 
         batch.forEach(transition => {
             const { state, action, reward, nextState } = transition;
 
-            // Текущие Q-значения
+            // Current Q-values
             this.setInput(state);
             this.perceptron.forwardPass();
             const qValues = this.perceptron.getOutputVector();
 
 
-            // Q-значения следующего состояния
+            // Q-vaules for next state
             this.setInput(nextState);
             this.targetNeuralNetwork.forwardPass();
             const qValuesTarget = this.targetNeuralNetwork.getOutputVector();
             const maxNextQ = Math.max(...qValuesTarget);
 
-            // Создание нового массива целевых Q-значений
+            // New array for Q-values
             const targetQValues = [...qValues];
             const maxQValue = 10;
             const minQValue = -10;
@@ -104,11 +108,10 @@ class NeuralNetwork {
                 ? 0
                 : Math.min(Math.max(reward + gamma * maxNextQ, minQValue), maxQValue);
 
-            // Логирование значений
             // console.log("Q-values before update:", qValues);
             // console.log("Target Q-values:", targetQValues, 'action:' + action);
 
-            // Обучение
+            // Learn
             this.setInput(state);
             this.perceptron.setOutputVector(targetQValues);
             this.perceptron.backPropagation();
@@ -122,7 +125,7 @@ class NeuralNetwork {
         });
 
         this.epoch++;
-        lossGraph.push(this.networkError / batch.length); // Средняя ошибка
+        lossGraph.push(this.networkError / batch.length); // Avg error
         if (lossGraph.length > graphMaxPoints) {
             lossGraph.shift();
         }
